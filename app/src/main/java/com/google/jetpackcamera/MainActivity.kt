@@ -56,8 +56,8 @@ import kotlinx.coroutines.launch
 /**
  * Activity for the JetpackCameraApp.
  */
-@AndroidEntryPoint
-class MainActivity : ComponentActivity() {
+@AndroidEntryPoint(ComponentActivity::class)
+class MainActivity : Hilt_MainActivity() {
     private val viewModel: MainActivityViewModel by viewModels()
 
     @VisibleForTesting

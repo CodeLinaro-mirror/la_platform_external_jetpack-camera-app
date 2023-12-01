@@ -33,10 +33,10 @@ import androidx.camera.core.UseCaseGroup
 import androidx.camera.core.ViewPort
 import androidx.camera.core.ZoomState
 import androidx.camera.lifecycle.ProcessCameraProvider
-import androidx.camera.video.MediaStoreOutputOptions
-import androidx.camera.video.Recorder
-import androidx.camera.video.Recording
-import androidx.camera.video.VideoCapture
+//import androidx.camera.video.MediaStoreOutputOptions
+//import androidx.camera.video.Recorder
+//import androidx.camera.video.Recording
+//import androidx.camera.video.VideoCapture
 import androidx.concurrent.futures.await
 import androidx.core.content.ContextCompat
 import com.google.jetpackcamera.domain.camera.CameraUseCase.Companion.INVALID_ZOOM_SCALE
@@ -71,11 +71,11 @@ constructor(
     // TODO apply flash from settings
     private val imageCaptureUseCase = ImageCapture.Builder().build()
 
-    private val recorder = Recorder.Builder().setExecutor(
-        defaultDispatcher.asExecutor()
-    ).build()
-    private val videoCaptureUseCase = VideoCapture.withOutput(recorder)
-    private var recording: Recording? = null
+//    private val recorder = Recorder.Builder().setExecutor(
+//        defaultDispatcher.asExecutor()
+//    ).build()
+//    private val videoCaptureUseCase = VideoCapture.withOutput(recorder)
+//    private var recording: Recording? = null
 
     private lateinit var previewUseCase: Preview
     private lateinit var useCaseGroup: UseCaseGroup
@@ -161,27 +161,27 @@ constructor(
             ContentValues().apply {
                 put(MediaStore.Video.Media.DISPLAY_NAME, name)
             }
-        val mediaStoreOutput =
-            MediaStoreOutputOptions.Builder(
-                application.contentResolver,
-                MediaStore.Video.Media.EXTERNAL_CONTENT_URI
-            )
-                .setContentValues(contentValues)
-                .build()
+//        val mediaStoreOutput =
+//            MediaStoreOutputOptions.Builder(
+//                application.contentResolver,
+//                MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+//            )
+//                .setContentValues(contentValues)
+//                .build()
 
-        recording =
-            videoCaptureUseCase.output
-                .prepareRecording(application, mediaStoreOutput)
-                .start(ContextCompat.getMainExecutor(application)) { videoRecordEvent ->
-                    run {
-                        Log.d(TAG, videoRecordEvent.toString())
-                    }
-                }
+//        recording =
+//            videoCaptureUseCase.output
+//                .prepareRecording(application, mediaStoreOutput)
+//                .start(ContextCompat.getMainExecutor(application)) { videoRecordEvent ->
+//                    run {
+//                        Log.d(TAG, videoRecordEvent.toString())
+//                    }
+//                }
     }
 
     override fun stopVideoRecording() {
         Log.d(TAG, "stopRecording")
-        recording?.stop()
+//        recording?.stop()
     }
 
     override fun setZoomScale(scale: Float): Float {
@@ -267,7 +267,7 @@ constructor(
                 )
                 .addUseCase(previewUseCase)
                 .addUseCase(imageCaptureUseCase)
-                .addUseCase(videoCaptureUseCase)
+//                .addUseCase(videoCaptureUseCase)
 
         if (captureMode == CaptureMode.SINGLE_STREAM) {
             useCaseGroupBuilder.addEffect(SingleSurfaceForcingEffect())
@@ -320,3 +320,4 @@ constructor(
             else -> throw IllegalArgumentException("Invalid lens facing type: $lensFacing")
         }
 }
+

@@ -23,32 +23,32 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.google.accompanist.permissions.ExperimentalPermissionsApi
-import com.google.accompanist.permissions.isGranted
-import com.google.accompanist.permissions.rememberPermissionState
+//import com.google.accompanist.permissions.ExperimentalPermissionsApi
+//import com.google.accompanist.permissions.isGranted
+//import com.google.accompanist.permissions.rememberPermissionState
 import com.google.jetpackcamera.feature.preview.PreviewScreen
 import com.google.jetpackcamera.feature.preview.PreviewViewModel
 import com.google.jetpackcamera.settings.SettingsScreen
 import com.google.jetpackcamera.ui.Routes.PREVIEW_ROUTE
 import com.google.jetpackcamera.ui.Routes.SETTINGS_ROUTE
 
-@OptIn(ExperimentalPermissionsApi::class)
+//@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun JcaApp(
     onPreviewViewModel: (PreviewViewModel) -> Unit
     /*TODO(b/306236646): remove after still capture*/
 ) {
-    val permissionState =
-        rememberPermissionState(permission = Manifest.permission.CAMERA)
+//    val permissionState = Manifest.permission.CAMERA
+//        rememberPermissionState(permission = Manifest.permission.CAMERA)
 
-    if (permissionState.status.isGranted) {
+//    if (permissionState.status.isGranted) {
         JetpackCameraNavHost(onPreviewViewModel)
-    } else {
-        CameraPermission(
-            modifier = Modifier.fillMaxSize(),
-            cameraPermissionState = permissionState
-        )
-    }
+//    } else {
+//        CameraPermission(
+//            modifier = Modifier.fillMaxSize(),
+//            cameraPermissionState = permissionState
+//        )
+//    }
 }
 
 @Composable
@@ -70,3 +70,4 @@ private fun JetpackCameraNavHost(
         }
     }
 }
+

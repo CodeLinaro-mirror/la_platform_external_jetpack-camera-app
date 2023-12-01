@@ -26,7 +26,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -68,7 +68,7 @@ fun SettingsPageHeader(modifier: Modifier = Modifier, title: String, navBack: ()
         },
         navigationIcon = {
             IconButton(onClick = { navBack() }) {
-                Icon(Icons.Filled.ArrowBack, stringResource(id = R.string.nav_back_accessibility))
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(id = R.string.nav_back_accessibility))
             }
         }
     )
@@ -332,8 +332,8 @@ fun SettingUI(
 ) {
     ListItem(
         modifier = modifier,
-        headlineText = { Text(title) },
-        supportingText = when (description) {
+        headlineContent = { Text(title) },
+        supportingContent = when (description) {
             null -> null
             else -> {
                 { Text(description) }

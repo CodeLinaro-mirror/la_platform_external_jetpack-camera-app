@@ -71,5 +71,5 @@ private class CoroutineLifecycleOwner(coroutineContext: CoroutineContext) :
         }
     }
 
-    override fun getLifecycle() = lifecycleRegistry
+    override public val lifecycle: Lifecycle = lifecycleRegistry
 }

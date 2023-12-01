@@ -21,5 +21,5 @@ import dagger.hilt.android.HiltAndroidApp
 /**
  * [Application] class for JetpackCameraApp.
  */
-@HiltAndroidApp
-class JetpackCameraApplication : Application()
+@HiltAndroidApp(Application::class)
+class JetpackCameraApplication : Hilt_JetpackCameraApplication()

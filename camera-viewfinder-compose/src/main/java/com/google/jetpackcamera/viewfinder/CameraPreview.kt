@@ -21,7 +21,6 @@ import android.view.Surface
 import android.view.View
 import androidx.camera.core.Preview.SurfaceProvider
 import androidx.camera.core.SurfaceRequest
-import androidx.camera.view.PreviewView.ImplementationMode
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -38,6 +37,20 @@ import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.flow.mapNotNull
 
 private const val TAG = "Preview"
+
+enum class ImplementationMode {
+    /**
+     * Use a [SurfaceView] for the preview when possible. If the device
+     * doesn't support [SurfaceView], [PreviewView] will fall back to use a
+     * [TextureView] instead.
+     */
+    PERFORMANCE,
+
+    /**
+     * Use a [TextureView] for the preview.
+     */
+    COMPATIBLE
+}
 
 @Composable
 fun CameraPreview(

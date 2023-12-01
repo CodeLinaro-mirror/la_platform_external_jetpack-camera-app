@@ -43,16 +43,16 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.google.accompanist.permissions.ExperimentalPermissionsApi
-import com.google.accompanist.permissions.PermissionState
+//import com.google.accompanist.permissions.ExperimentalPermissionsApi
+//import com.google.accompanist.permissions.PermissionState
 import com.google.jetpackcamera.R
 
-@OptIn(ExperimentalPermissionsApi::class)
+//@OptIn(ExperimentalPermissionsApi::class)
 @Composable
-fun CameraPermission(modifier: Modifier = Modifier, cameraPermissionState: PermissionState) {
+fun CameraPermission(modifier: Modifier = Modifier) {
     PermissionTemplate(
         modifier = modifier,
-        permissionState = cameraPermissionState,
+//        permissionState = cameraPermissionState,
         painter = painterResource(id = R.drawable.photo_camera),
         iconAccessibilityText = stringResource(id = R.string.camera_permission_accessibility_text),
         title = stringResource(id = R.string.camera_permission_screen_title),
@@ -61,11 +61,11 @@ fun CameraPermission(modifier: Modifier = Modifier, cameraPermissionState: Permi
     )
 }
 
-@OptIn(ExperimentalPermissionsApi::class)
+//@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun PermissionTemplate(
     modifier: Modifier = Modifier,
-    permissionState: PermissionState,
+//    permissionState: PermissionState,
     onSkipPermission: (() -> Unit)? = null,
     painter: Painter,
     iconAccessibilityText: String,
@@ -100,7 +100,7 @@ fun PermissionTemplate(
                     .fillMaxWidth()
                     .align(Alignment.CenterHorizontally)
                     .height(IntrinsicSize.Min),
-                permissionState = permissionState,
+//                permissionState = permissionState,
                 requestButtonText = requestButtonText,
                 onSkipPermission = onSkipPermission
             )
@@ -123,11 +123,11 @@ fun PermissionImage(modifier: Modifier = Modifier, painter: Painter, accessibili
     }
 }
 
-@OptIn(ExperimentalPermissionsApi::class)
+//@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun PermissionButtonSection(
     modifier: Modifier = Modifier,
-    permissionState: PermissionState,
+//    permissionState: PermissionState,
     requestButtonText: String,
     onSkipPermission: (() -> Unit)?
 ) {
@@ -138,7 +138,7 @@ fun PermissionButtonSection(
                 .align(Alignment.Center)
         ) {
             PermissionButton(
-                permissionState = permissionState,
+//                permissionState = permissionState,
                 requestButtonText = requestButtonText
             )
             Spacer(modifier = Modifier.height(20.dp))
@@ -156,11 +156,11 @@ fun PermissionButtonSection(
     }
 }
 
-@OptIn(ExperimentalPermissionsApi::class)
+//@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun PermissionButton(
     modifier: Modifier = Modifier,
-    permissionState: PermissionState,
+//    permissionState: PermissionState,
     requestButtonText: String
 ) {
     Button(
@@ -169,7 +169,9 @@ fun PermissionButton(
             containerColor = MaterialTheme.colorScheme.primaryContainer,
             contentColor = MaterialTheme.colorScheme.onPrimaryContainer
         ),
-        onClick = { permissionState.launchPermissionRequest() }
+        onClick = {
+//            permissionState.launchPermissionRequest()
+        }
     ) {
         Text(
             modifier = Modifier.padding(10.dp),
@@ -233,3 +235,4 @@ fun PermissionBodyText(modifier: Modifier = Modifier, text: String, color: Color
         textAlign = TextAlign.Center
     )
 }
+
