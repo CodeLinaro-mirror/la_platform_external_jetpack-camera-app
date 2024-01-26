@@ -1,0 +1,17 @@
+package {
+    default_applicable_licenses: [
+        "Android-Apache-2.0",
+    ],
+}
+
+subdirs = [
+        "app",
+	"core/common",
+	"camera-viewfinder-compose",
+	"data/settings",
+	"domain/camera",
+	"feature",
+
+    ]
+
+
