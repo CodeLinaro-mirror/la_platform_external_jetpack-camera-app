@@ -1,0 +1,36 @@
+/*
+ * Copyright (C) 2023 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+syntax = "proto3";
+
+import "com/google/jetpackcamera/settings/aspect_ratio.proto";
+import "com/google/jetpackcamera/settings/capture_mode.proto";
+import "com/google/jetpackcamera/settings/dark_mode.proto";
+import "com/google/jetpackcamera/settings/flash_mode.proto";
+
+
+option java_package = "com.google.jetpackcamera.settings";
+option java_multiple_files = true;
+
+message JcaSettings {
+  bool default_front_camera = 2;
+  bool front_camera_available = 3;
+  bool back_camera_available = 4;
+  DarkMode dark_mode_status = 5;
+  FlashMode flash_mode_status = 6;
+  AspectRatio aspect_ratio_status = 7;
+  CaptureMode capture_mode_status = 8;
+}
