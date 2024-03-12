@@ -15,6 +15,8 @@
  */
 package com.google.jetpackcamera.domain.camera
 
+import android.content.ContentResolver
+import android.net.Uri
 import android.util.Rational
 import android.view.Display
 import androidx.camera.core.Preview
@@ -22,6 +24,7 @@ import com.google.jetpackcamera.settings.model.AspectRatio as SettingsAspectRati
 import com.google.jetpackcamera.settings.model.CameraAppSettings
 import com.google.jetpackcamera.settings.model.CaptureMode as SettingsCaptureMode
 import com.google.jetpackcamera.settings.model.FlashMode as SettingsFlashMode
+import kotlinx.coroutines.flow.SharedFlow
 
 /**
  * Data layer for camera.
@@ -46,17 +49,23 @@ interface CameraUseCase {
 
     suspend fun takePicture()
 
+    suspend fun takePicture(contentResolver: ContentResolver, imageCaptureUri: Uri?)
+
     suspend fun startVideoRecording()
 
     fun stopVideoRecording()
 
     fun setZoomScale(scale: Float): Float
 
-    fun setFlashMode(flashMode: SettingsFlashMode)
+    fun getScreenFlashEvents(): SharedFlow<ScreenFlashEvent>
+
+    fun setFlashMode(flashMode: SettingsFlashMode, isFrontFacing: Boolean)
+
+    fun isScreenFlashEnabled(): Boolean
 
     suspend fun setAspectRatio(aspectRatio: SettingsAspectRatio, isFrontFacing: Boolean)
 
-    suspend fun flipCamera(isFrontFacing: Boolean)
+    suspend fun flipCamera(isFrontFacing: Boolean, flashMode: SettingsFlashMode)
 
     fun tapToFocus(display: Display, surfaceWidth: Int, surfaceHeight: Int, x: Float, y: Float)
 
@@ -108,5 +117,15 @@ interface CameraUseCase {
         OFF,
         ON,
         AUTO
+    }
+
+    /**
+     * Represents the events required for screen flash.
+     */
+    data class ScreenFlashEvent(val type: Type, val onComplete: () -> Unit) {
+        enum class Type {
+            APPLY_UI,
+            CLEAR_UI
+        }
     }
 }
