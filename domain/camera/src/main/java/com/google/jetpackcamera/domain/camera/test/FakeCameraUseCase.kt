@@ -15,6 +15,8 @@
  */
 package com.google.jetpackcamera.domain.camera.test
 
+import android.content.ContentResolver
+import android.net.Uri
 import android.view.Display
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.Preview
@@ -23,8 +25,16 @@ import com.google.jetpackcamera.settings.model.AspectRatio
 import com.google.jetpackcamera.settings.model.CameraAppSettings
 import com.google.jetpackcamera.settings.model.CaptureMode
 import com.google.jetpackcamera.settings.model.FlashMode
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.launch
 
-class FakeCameraUseCase : CameraUseCase {
+class FakeCameraUseCase(
+    private val coroutineScope: CoroutineScope =
+        CoroutineScope(SupervisorJob() + Dispatchers.Default)
+) : CameraUseCase {
     private val availableLenses =
         listOf(CameraSelector.LENS_FACING_FRONT, CameraSelector.LENS_FACING_BACK)
     private var initialized = false
@@ -38,6 +48,9 @@ class FakeCameraUseCase : CameraUseCase {
     var isLensFacingFront = false
     private var flashMode = FlashMode.OFF
     private var aspectRatio = AspectRatio.THREE_FOUR
+
+    private var isScreenFlash = true
+    private var screenFlashEvents = MutableSharedFlow<CameraUseCase.ScreenFlashEvent>()
 
     override suspend fun initialize(currentCameraSettings: CameraAppSettings): List<Int> {
         initialized = true
@@ -71,7 +84,26 @@ class FakeCameraUseCase : CameraUseCase {
         if (!useCasesBinded) {
             throw IllegalStateException("Usecases not binded")
         }
+        if (isScreenFlash) {
+            coroutineScope.launch {
+                screenFlashEvents.emit(
+                    CameraUseCase.ScreenFlashEvent(CameraUseCase.ScreenFlashEvent.Type.APPLY_UI) { }
+                )
+                screenFlashEvents.emit(
+                    CameraUseCase.ScreenFlashEvent(CameraUseCase.ScreenFlashEvent.Type.CLEAR_UI) { }
+                )
+            }
+        }
         numPicturesTaken += 1
+    }
+    override suspend fun takePicture(contentResolver: ContentResolver, imageCaptureUri: Uri?) {
+        takePicture()
+    }
+
+    fun emitScreenFlashEvent(event: CameraUseCase.ScreenFlashEvent) {
+        coroutineScope.launch {
+            screenFlashEvents.emit(event)
+        }
     }
 
     override suspend fun startVideoRecording() {
@@ -86,15 +118,23 @@ class FakeCameraUseCase : CameraUseCase {
         return -1f
     }
 
-    override fun setFlashMode(flashMode: FlashMode) {
+    override fun getScreenFlashEvents() = screenFlashEvents
+
+    override fun setFlashMode(flashMode: FlashMode, isFrontFacing: Boolean) {
         this.flashMode = flashMode
+        isLensFacingFront = isFrontFacing
+
+        isScreenFlash =
+            isLensFacingFront && (flashMode == FlashMode.AUTO || flashMode == FlashMode.ON)
     }
+
+    override fun isScreenFlashEnabled() = isScreenFlash
 
     override suspend fun setAspectRatio(aspectRatio: AspectRatio, isFrontFacing: Boolean) {
         this.aspectRatio = aspectRatio
     }
 
-    override suspend fun flipCamera(isFrontFacing: Boolean) {
+    override suspend fun flipCamera(isFrontFacing: Boolean, flashMode: FlashMode) {
         isLensFacingFront = isFrontFacing
     }
 
