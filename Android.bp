@@ -2,16 +2,15 @@ package {
     default_applicable_licenses: [
         "Android-Apache-2.0",
     ],
+    default_team: "trendy_team_camerax",
 }
 
 subdirs = [
-        "app",
-	"core/common",
-	"camera-viewfinder-compose",
-	"data/settings",
-	"domain/camera",
-	"feature",
+    "app",
+    "core/common",
+    "camera-viewfinder-compose",
+    "data/settings",
+    "domain/camera",
+    "feature",
 
-    ]
-
-
+]
