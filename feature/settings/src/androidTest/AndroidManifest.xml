@@ -21,7 +21,7 @@
     <instrumentation
         android:name="androidx.test.runner.AndroidJUnitRunner"
         android:label="Settings Android Tests"
-        android:targetPackage="com.google.jetpackcamera.feature.settings" />
+        android:targetPackage="com.google.jetpackcamera.feature.settings.test" />
 
     <application>
         <uses-library android:name="android.test.runner" />
