@@ -1,0 +1,14 @@
+{
+  "postsubmit": [
+    {
+      "name": "jetpack-camera-app-tests"
+    },
+    {
+      "name": "jetpack-camera-app_feature_preview-android-tests"
+    },
+    {
+      "name": "jetpack-camera-app_feature_settings-tests"
+    }
+  ]
+
+}
