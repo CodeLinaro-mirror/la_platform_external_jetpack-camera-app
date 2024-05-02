@@ -43,7 +43,8 @@ class FakeCameraUseCaseTest {
 
     private val cameraUseCase = FakeCameraUseCase(testScope)
 
-    private val surfaceProvider: Preview.SurfaceProvider = Mockito.mock()
+    private val surfaceProvider: Preview.SurfaceProvider =
+        Mockito.mock(Preview.SurfaceProvider::class.java)
 
     @Before
     fun setup() = runTest(testDispatcher) {
