@@ -16,12 +16,12 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.google.jetpackcamera.feature.preview.androidtest" >
+    package="com.google.jetpackcamera.feature.preview.test" >
 
     <instrumentation
         android:name="androidx.test.runner.AndroidJUnitRunner"
         android:label="Preview Android Tests"
-        android:targetPackage="com.google.jetpackcamera.feature.preview" />
+        android:targetPackage="com.google.jetpackcamera.feature.preview.test" />
 
     <application>
         <uses-library android:name="android.test.runner" />
