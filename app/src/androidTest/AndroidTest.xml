@@ -16,12 +16,13 @@
 <configuration description="Runs App Test Cases.">
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
+        <option name="test-file-name" value="jetpack-camera-app.apk" />
         <option name="test-file-name" value="jetpack-camera-app-tests.apk" />
     </target_preparer>
 
     <option name="test-tag" value="jetpack-camera-app-tests" />
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
-        <option name="package" value="com.google.jetpackcamera.test" />
+        <option name="package" value="com.google.jetpackcamera.apptests" />
         <option name="runner" value="androidx.test.runner.AndroidJUnitRunner" />
     </test>
 </configuration>
