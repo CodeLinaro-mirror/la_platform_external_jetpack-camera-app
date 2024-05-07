@@ -35,7 +35,6 @@ import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
 import java.io.File
 import java.net.URLConnection
-import kotlinx.coroutines.test.runTest
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -80,7 +79,7 @@ internal class ImageCaptureDeviceTest {
     }
 
     @Test
-    fun image_capture_external_illegal_uri() = runTest {
+    fun image_capture_external_illegal_uri() = run {
         val timeStamp = System.currentTimeMillis()
         val inputUri = Uri.parse("asdfasdf")
         getTestRegistry {
@@ -99,7 +98,6 @@ internal class ImageCaptureDeviceTest {
         }.register("key_illegal_uri", TEST_CONTRACT) { result ->
             assert(!result)
         }.launch(inputUri)
-        deleteFilesInDirAfterTimestamp(timeStamp)
     }
 
     private fun doesImageFileExist(uri: Uri): Boolean {
@@ -164,8 +162,8 @@ internal class ImageCaptureDeviceTest {
             override fun createIntent(context: Context, uri: Uri): Intent {
                 return super.createIntent(context, uri).apply {
                     component = ComponentName(
-                        "com.google.jetpackcamera",
-                        "com.google.jetpackcamera.MainActivity"
+                        ApplicationProvider.getApplicationContext(),
+                        MainActivity::class.java
                     )
                 }
             }

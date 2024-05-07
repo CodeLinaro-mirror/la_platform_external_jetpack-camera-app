@@ -16,7 +16,11 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.google.jetpackcamera.test" >
+    package="com.google.jetpackcamera.apptests" >
+
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
 
     <instrumentation
         android:name="androidx.test.runner.AndroidJUnitRunner"
