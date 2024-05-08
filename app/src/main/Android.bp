@@ -7,6 +7,7 @@ package {
 java_defaults {
     name: "jetpack-camera-app-defaults",
     static_libs: [
+        "accompanist-permissions",
         "androidx.compose.material3_material3",
         "androidx.compose.ui_ui-tooling-preview",
         "androidx.compose.ui_ui-tooling",
