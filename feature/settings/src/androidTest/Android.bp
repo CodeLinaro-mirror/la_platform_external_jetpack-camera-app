@@ -12,6 +12,7 @@ android_test {
         "kotlinx_coroutines_test",
         "androidx.compose.runtime_runtime",
         "androidx.compose.ui_ui-test-junit4",
+        "jetpack-camera-app_feature_settings",
     ],
     instrumentation_for: "jetpack-camera-app_feature_settings",
     sdk_version: "34",
