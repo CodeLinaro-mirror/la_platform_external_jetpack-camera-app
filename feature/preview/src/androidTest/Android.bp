@@ -3,7 +3,7 @@ package {
 }
 
 android_test {
-    name: "jetpack-camera-app_feature_preview-android-tests",
+    name: "jetpack-camera-app_feature_preview-tests",
     team: "trendy_team_camerax",
     srcs: ["java/**/*.kt"],
     static_libs: [
@@ -14,6 +14,7 @@ android_test {
         "androidx.compose.runtime_runtime",
         "androidx.compose.ui_ui-test-junit4",
         "androidx.compose.ui_ui-test-manifest",
+        "jetpack-camera-app_feature_preview",
 
     ],
     instrumentation_for: "jetpack-camera-app_feature_preview",

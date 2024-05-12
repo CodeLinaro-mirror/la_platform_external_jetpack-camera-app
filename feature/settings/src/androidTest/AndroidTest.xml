@@ -21,7 +21,7 @@
 
     <option name="test-tag" value="jetpack-camera-app_feature_settings-tests" />
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
-        <option name="package" value="com.google.jetpackcamera.settings.preview.test" />
+        <option name="package" value="com.google.jetpackcamera.feature.settings.test" />
         <option name="runner" value="androidx.test.runner.AndroidJUnitRunner" />
     </test>
 </configuration>
