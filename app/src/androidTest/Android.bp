@@ -1,0 +1,35 @@
+package {
+    default_applicable_licenses: [
+        "Android-Apache-2.0",
+    ],
+}
+
+android_test {
+    name: "jetpack-camera-app-tests",
+    team: "trendy_team_camerax",
+    srcs: [
+        "java/**/*.kt",
+    ],
+
+    static_libs: [
+        "androidx.test.runner",
+        "androidx.test.uiautomator_uiautomator",
+        "androidx.test.espresso.core",
+        "androidx.test.ext.junit",
+        "androidx.test.rules",
+        "androidx.test.core",
+        "androidx.activity_activity-ktx",
+        "kotlinx_coroutines_test",
+    ],
+    sdk_version: "34",
+    test_suites: ["general-tests"],
+    optimize: {
+        enabled: false,
+    },
+    instrumentation_for: "jetpack-camera-app-tests-helper",
+    data: [
+        ":jetpack-camera-app",
+    ],
+    //TODO(b/338257246): Remove exclusion after PreviewViewModel is removed in app module
+    exclude_srcs: ["java/com/google/jetpackcamera/FlashDeviceTest.kt"],
+}

@@ -1,0 +1,26 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+android_test {
+    name: "jetpack-camera-app_feature_preview-tests",
+    team: "trendy_team_camerax",
+    srcs: ["java/**/*.kt"],
+    static_libs: [
+        "androidx.test.runner",
+        "junit",
+        "androidx.test.ext.junit",
+        "kotlinx_coroutines_test",
+        "androidx.compose.runtime_runtime",
+        "androidx.compose.ui_ui-test-junit4",
+        "androidx.compose.ui_ui-test-manifest",
+        "jetpack-camera-app_feature_preview",
+
+    ],
+    instrumentation_for: "jetpack-camera-app_feature_preview",
+    sdk_version: "34",
+    test_suites: ["general-tests"],
+    optimize: {
+        enabled: false,
+    },
+}

@@ -51,7 +51,7 @@ class ScreenFlashTest {
     fun setup() = runTest(testDispatcher) {
         screenFlash = ScreenFlash(cameraUseCase, testScope)
 
-        val surfaceProvider: Preview.SurfaceProvider = Mockito.mock()
+        val surfaceProvider: Preview.SurfaceProvider = Mockito.mock(Preview.SurfaceProvider::class.java)
         cameraUseCase.initialize(DEFAULT_CAMERA_APP_SETTINGS)
         cameraUseCase.runCamera(surfaceProvider, DEFAULT_CAMERA_APP_SETTINGS)
     }
@@ -71,7 +71,7 @@ class ScreenFlashTest {
 
             // FlashMode.ON in front facing camera automatically enables screen flash
             cameraUseCase.setFlashMode(FlashMode.ON, true)
-            val contentResolver: ContentResolver = Mockito.mock()
+            val contentResolver: ContentResolver = Mockito.mock(ContentResolver::class.java)
             cameraUseCase.takePicture(contentResolver, null)
 
             advanceUntilIdle()
