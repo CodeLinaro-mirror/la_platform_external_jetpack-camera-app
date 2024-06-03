@@ -10,6 +10,7 @@ java_test {
         "androidx.test.runner",
         "kotlinx_coroutines_test",
         "androidx.test.ext.junit",
+        "androidx.test.ext.truth",
         "mockito-core",
         "jetpack-camera-app_domain_camera",
 

@@ -19,7 +19,9 @@ import com.google.jetpackcamera.settings.model.AspectRatio
 import com.google.jetpackcamera.settings.model.CameraAppSettings
 import com.google.jetpackcamera.settings.model.CaptureMode
 import com.google.jetpackcamera.settings.model.DarkMode
+import com.google.jetpackcamera.settings.model.DynamicRange
 import com.google.jetpackcamera.settings.model.FlashMode
+import com.google.jetpackcamera.settings.model.LensFacing
 import com.google.jetpackcamera.settings.model.Stabilization
 import kotlinx.coroutines.flow.Flow
 
@@ -28,27 +30,25 @@ import kotlinx.coroutines.flow.Flow
  */
 interface SettingsRepository {
 
-    val cameraAppSettings: Flow<CameraAppSettings>
+    val defaultCameraAppSettings: Flow<CameraAppSettings>
 
-    suspend fun updateDefaultToFrontCamera()
+    suspend fun getCurrentDefaultCameraAppSettings(): CameraAppSettings
+
+    suspend fun updateDefaultLensFacing(lensFacing: LensFacing)
 
     suspend fun updateDarkModeStatus(darkMode: DarkMode)
 
     suspend fun updateFlashModeStatus(flashMode: FlashMode)
-
-    // set device values from cameraUseCase
-    suspend fun updateAvailableCameraLens(frontLensAvailable: Boolean, backLensAvailable: Boolean)
 
     suspend fun updateAspectRatio(aspectRatio: AspectRatio)
 
     suspend fun updateCaptureMode(captureMode: CaptureMode)
 
     suspend fun updatePreviewStabilization(stabilization: Stabilization)
+
     suspend fun updateVideoStabilization(stabilization: Stabilization)
 
-    suspend fun updateVideoStabilizationSupported(isSupported: Boolean)
+    suspend fun updateDynamicRange(dynamicRange: DynamicRange)
 
-    suspend fun updatePreviewStabilizationSupported(isSupported: Boolean)
-
-    suspend fun getCameraAppSettings(): CameraAppSettings
+    suspend fun updateTargetFrameRate(targetFrameRate: Int)
 }
