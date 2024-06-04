@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 The Android Open Source Project
+ * Copyright (C) 2024 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,9 +26,9 @@ const val DEFAULT_TEST_ITERATIONS = 5
 
 // test tags
 const val CAPTURE_BUTTON = "CaptureButton"
-const val QUICK_SETTINGS_DROP_DOWN_BUTTON = "QuickSettingDropDown"
-const val QUICK_SETTINGS_FLASH_BUTTON = "QuickSetFlash"
-const val QUICK_SETTINGS_FLIP_CAMERA_BUTTON = "QuickSetFlipCamera"
+const val QUICK_SETTINGS_DROP_DOWN_BUTTON = "QuickSettingsDropDown"
+const val QUICK_SETTINGS_FLASH_BUTTON = "QuickSettingsFlashButton"
+const val QUICK_SETTINGS_FLIP_CAMERA_BUTTON = "QuickSettingsFlipCameraButton"
 const val IMAGE_CAPTURE_SUCCESS_TOAST = "ImageCaptureSuccessToast"
 
 // test descriptions

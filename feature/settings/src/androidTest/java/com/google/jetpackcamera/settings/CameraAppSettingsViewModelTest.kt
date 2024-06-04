@@ -21,18 +21,19 @@ import androidx.datastore.core.DataStoreFactory
 import androidx.datastore.dataStoreFile
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
+import com.google.common.truth.Truth.assertThat
 import com.google.jetpackcamera.settings.model.DEFAULT_CAMERA_APP_SETTINGS
 import com.google.jetpackcamera.settings.model.DarkMode
+import com.google.jetpackcamera.settings.model.LensFacing
+import com.google.jetpackcamera.settings.model.TYPICAL_SYSTEM_CONSTRAINTS
 import java.io.File
 import junit.framework.TestCase.assertEquals
-import junit.framework.TestCase.assertFalse
-import junit.framework.TestCase.assertTrue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -46,7 +47,6 @@ internal class CameraAppSettingsViewModelTest {
     private val testContext: Context = InstrumentationRegistry.getInstrumentation().targetContext
     private lateinit var testDataStore: DataStore<JcaSettings>
     private lateinit var datastoreScope: CoroutineScope
-    private lateinit var repository: LocalSettingsRepository
     private lateinit var settingsViewModel: SettingsViewModel
 
     @Before
@@ -60,8 +60,11 @@ internal class CameraAppSettingsViewModelTest {
         ) {
             testContext.dataStoreFile("test_jca_settings.pb")
         }
-        repository = LocalSettingsRepository(testDataStore)
-        settingsViewModel = SettingsViewModel(repository)
+        val settingsRepository = LocalSettingsRepository(testDataStore)
+        val constraintsRepository = SettableConstraintsRepositoryImpl().apply {
+            updateSystemConstraints(TYPICAL_SYSTEM_CONSTRAINTS)
+        }
+        settingsViewModel = SettingsViewModel(settingsRepository, constraintsRepository)
         advanceUntilIdle()
     }
 
@@ -77,40 +80,67 @@ internal class CameraAppSettingsViewModelTest {
 
     @Test
     fun getSettingsUiState() = runTest(StandardTestDispatcher()) {
-        // giving ViewModel time to call init, otherwise settings will stay disabled
-        delay(100)
-        val uiState = settingsViewModel.settingsUiState.value
-        advanceUntilIdle()
-        assertEquals(
-            uiState,
-            SettingsUiState(cameraAppSettings = DEFAULT_CAMERA_APP_SETTINGS, disabled = false)
+        val uiState = settingsViewModel.settingsUiState.first {
+            it is SettingsUiState.Enabled
+        }
+
+        assertThat(uiState).isEqualTo(
+            SettingsUiState.Enabled(
+                cameraAppSettings = DEFAULT_CAMERA_APP_SETTINGS,
+                systemConstraints = TYPICAL_SYSTEM_CONSTRAINTS
+            )
         )
     }
 
     @Test
     fun setDefaultToFrontCamera() = runTest(StandardTestDispatcher()) {
-        val initialFrontCameraValue =
-            settingsViewModel.settingsUiState.value.cameraAppSettings.isFrontCameraFacing
-        settingsViewModel.setDefaultToFrontCamera()
+        // Wait for first Enabled state
+        val initialState = settingsViewModel.settingsUiState.first {
+            it is SettingsUiState.Enabled
+        }
+
+        val initialCameraLensFacing = assertIsEnabled(initialState)
+            .cameraAppSettings.cameraLensFacing
+        val nextCameraLensFacing = if (initialCameraLensFacing == LensFacing.FRONT) {
+            LensFacing.BACK
+        } else {
+            LensFacing.FRONT
+        }
+        settingsViewModel.setDefaultLensFacing(nextCameraLensFacing)
 
         advanceUntilIdle()
 
-        val newFrontCameraValue =
-            settingsViewModel.settingsUiState.value.cameraAppSettings.isFrontCameraFacing
-
-        assertFalse(initialFrontCameraValue)
-        assertTrue(newFrontCameraValue)
+        assertIsEnabled(settingsViewModel.settingsUiState.value).also {
+            assertThat(it.cameraAppSettings.cameraLensFacing).isEqualTo(nextCameraLensFacing)
+        }
     }
 
     @Test
     fun setDarkMode() = runTest(StandardTestDispatcher()) {
-        val initialDarkMode = settingsViewModel.settingsUiState.value.cameraAppSettings.darkMode
+        // Wait for first Enabled state
+        val initialState = settingsViewModel.settingsUiState.first {
+            it is SettingsUiState.Enabled
+        }
+
+        val initialDarkMode = assertIsEnabled(initialState).cameraAppSettings.darkMode
+
         settingsViewModel.setDarkMode(DarkMode.DARK)
+
         advanceUntilIdle()
 
-        val newDarkMode = settingsViewModel.settingsUiState.value.cameraAppSettings.darkMode
+        val newDarkMode = assertIsEnabled(settingsViewModel.settingsUiState.value)
+            .cameraAppSettings.darkMode
 
         assertEquals(initialDarkMode, DarkMode.SYSTEM)
         assertEquals(DarkMode.DARK, newDarkMode)
+    }
+}
+
+private fun assertIsEnabled(settingsUiState: SettingsUiState): SettingsUiState.Enabled {
+    return when (settingsUiState) {
+        is SettingsUiState.Enabled -> settingsUiState
+        else -> throw AssertionError(
+            "SettingsUiState expected to be Enabled, but was ${settingsUiState::class}"
+        )
     }
 }

@@ -13,6 +13,7 @@ android_library {
     static_libs: [
         "androidx.compose.runtime_runtime",
         "androidx.compose.material3_material3",
+        "androidx.compose.material_material-icons-extended",
         "androidx.compose.ui_ui-tooling-preview",
         "androidx.tracing_tracing-ktx",
         "hilt_android",
@@ -25,8 +26,8 @@ android_library {
         "androidx.camera_camera-viewfinder",
         "jetpack-camera-app_data_settings",
         "jetpack-camera-app_domain_camera",
-        "jetpack-camera-app_camera-viewfinder-compose",
-        "jetpack-camera-app_feature_quicksettings",
+        "androidx.camera_camera-viewfinder-compose",
+        "androidx.compose.ui_ui-tooling",
 
     ],
     sdk_version: "34",

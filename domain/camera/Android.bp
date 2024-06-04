@@ -15,6 +15,7 @@ android_library {
         "androidx.camera_camera-video",
         "androidx.camera_camera-camera2",
         "androidx.camera_camera-lifecycle",
+        //"androidx.graphics_graphics-core",
         "jetpack-camera-app_data_settings",
         "jetpack-camera-app_core_common",
     ],
