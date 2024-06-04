@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-val ktlintVersion = "1.0.0"
+val ktlintVersion = "1.2.1"
 
 initscript {
-    val spotlessVersion = "6.22.0"
+    val spotlessVersion = "6.25.0"
 
     repositories {
         mavenCentral()
@@ -40,18 +40,21 @@ rootProject {
                 ktlint(ktlintVersion)
                     .setEditorConfigPath(rootProject.file(".editorconfig"))
                 licenseHeaderFile(rootProject.file("spotless/copyright.kt"))
+                    .updateYearWithLatest(false)
             }
             format("kts") {
                 target("**/*.kts")
                 targetExclude("**/build/**/*.kts")
                 // Look for the first line that doesn't have a block comment (assumed to be the license)
                 licenseHeaderFile(rootProject.file("spotless/copyright.kts"), "(^(?![\\/ ]\\*).*$)")
+                    .updateYearWithLatest(false)
             }
             format("xml") {
                 target("**/*.xml")
                 targetExclude("**/build/**/*.xml")
                 // Look for the first XML tag that isn't a comment (<!--) or the xml declaration (<?xml)
                 licenseHeaderFile(rootProject.file("spotless/copyright.xml"), "(<[^!?])")
+                    .updateYearWithLatest(false)
             }
         }
     }

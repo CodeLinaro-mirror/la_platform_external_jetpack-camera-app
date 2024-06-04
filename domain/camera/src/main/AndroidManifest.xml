@@ -16,5 +16,6 @@
   -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
   package="com.google.jetpackcamera.domain.camera">
-
+    <uses-permission android:name = "android.permission.RECORD_AUDIO" />
 </manifest>
+
