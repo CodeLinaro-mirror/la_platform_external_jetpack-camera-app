@@ -10,6 +10,7 @@ android_test {
         "androidx.test.runner",
         "androidx.test.ext.junit",
         "kotlinx_coroutines_test",
+        "androidx.test.ext.truth",
         "androidx.compose.runtime_runtime",
         "androidx.compose.ui_ui-test-junit4",
         "jetpack-camera-app_feature_settings",
