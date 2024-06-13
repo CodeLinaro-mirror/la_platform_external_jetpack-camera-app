@@ -72,11 +72,10 @@ fun PreviewScreen(
     previewMode: PreviewMode,
     modifier: Modifier = Modifier,
     onRequestWindowColorMode: (Int) -> Unit = {},
-    viewModel: PreviewViewModel = hiltViewModel()
+    viewModel: PreviewViewModel = hiltViewModel<PreviewViewModel, PreviewViewModel.Factory>
+        { factory -> factory.create(previewMode) }
 ) {
     Log.d(TAG, "PreviewScreen")
-
-    viewModel.init(previewMode)
 
     val previewUiState: PreviewUiState by viewModel.previewUiState.collectAsState()
 
