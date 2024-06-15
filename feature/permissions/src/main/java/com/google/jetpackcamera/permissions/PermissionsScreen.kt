@@ -60,10 +60,12 @@ fun PermissionsScreen(
     onNavigateToPreview: () -> Unit,
     openAppSettings: () -> Unit,
     permissionStates: MultiplePermissionsState,
-    viewModel: PermissionsViewModel = hiltViewModel()
+    viewModel: PermissionsViewModel = hiltViewModel<
+        PermissionsViewModel,
+        PermissionsViewModel.Factory
+        > { factory -> factory.create(permissionStates) }
 ) {
     Log.d(TAG, "PermissionsScreen")
-    viewModel.init(permissionStates)
     val permissionsUiState: PermissionsUiState by viewModel.permissionsUiState.collectAsState()
     if (permissionsUiState is PermissionsUiState.PermissionsNeeded) {
         val permissionEnum =
