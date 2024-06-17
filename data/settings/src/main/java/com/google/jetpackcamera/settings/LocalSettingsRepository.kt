@@ -26,12 +26,20 @@ import com.google.jetpackcamera.settings.model.AspectRatio
 import com.google.jetpackcamera.settings.model.CameraAppSettings
 import com.google.jetpackcamera.settings.model.CaptureMode
 import com.google.jetpackcamera.settings.model.DarkMode
+import com.google.jetpackcamera.settings.model.DynamicRange
+import com.google.jetpackcamera.settings.model.DynamicRange.Companion.toProto
 import com.google.jetpackcamera.settings.model.FlashMode
+import com.google.jetpackcamera.settings.model.LensFacing
+import com.google.jetpackcamera.settings.model.LensFacing.Companion.toProto
 import com.google.jetpackcamera.settings.model.Stabilization
-import com.google.jetpackcamera.settings.model.SupportedStabilizationMode
 import javax.inject.Inject
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+
+const val TARGET_FPS_NONE = 0
+const val TARGET_FPS_15 = 15
+const val TARGET_FPS_30 = 30
+const val TARGET_FPS_60 = 60
 
 /**
  * Implementation of [SettingsRepository] with locally stored settings.
@@ -40,10 +48,10 @@ class LocalSettingsRepository @Inject constructor(
     private val jcaSettings: DataStore<JcaSettings>
 ) : SettingsRepository {
 
-    override val cameraAppSettings = jcaSettings.data
+    override val defaultCameraAppSettings = jcaSettings.data
         .map {
             CameraAppSettings(
-                isFrontCameraFacing = it.defaultFrontCamera,
+                cameraLensFacing = LensFacing.fromProto(it.defaultLensFacing),
                 darkMode = when (it.darkModeStatus) {
                     DarkModeProto.DARK_MODE_DARK -> DarkMode.DARK
                     DarkModeProto.DARK_MODE_LIGHT -> DarkMode.LIGHT
@@ -56,29 +64,26 @@ class LocalSettingsRepository @Inject constructor(
                     FlashModeProto.FLASH_MODE_OFF -> FlashMode.OFF
                     else -> FlashMode.OFF
                 },
-                isFrontCameraAvailable = it.frontCameraAvailable,
-                isBackCameraAvailable = it.backCameraAvailable,
                 aspectRatio = AspectRatio.fromProto(it.aspectRatioStatus),
                 previewStabilization = Stabilization.fromProto(it.stabilizePreview),
                 videoCaptureStabilization = Stabilization.fromProto(it.stabilizeVideo),
-                supportedStabilizationModes = getSupportedStabilization(
-                    previewSupport = it.stabilizePreviewSupported,
-                    videoSupport = it.stabilizeVideoSupported
-                ),
+                targetFrameRate = it.targetFrameRate,
                 captureMode = when (it.captureModeStatus) {
                     CaptureModeProto.CAPTURE_MODE_SINGLE_STREAM -> CaptureMode.SINGLE_STREAM
                     CaptureModeProto.CAPTURE_MODE_MULTI_STREAM -> CaptureMode.MULTI_STREAM
                     else -> CaptureMode.MULTI_STREAM
-                }
+                },
+                dynamicRange = DynamicRange.fromProto(it.dynamicRangeStatus)
             )
         }
 
-    override suspend fun getCameraAppSettings(): CameraAppSettings = cameraAppSettings.first()
+    override suspend fun getCurrentDefaultCameraAppSettings(): CameraAppSettings =
+        defaultCameraAppSettings.first()
 
-    override suspend fun updateDefaultToFrontCamera() {
+    override suspend fun updateDefaultLensFacing(lensFacing: LensFacing) {
         jcaSettings.updateData { currentSettings ->
             currentSettings.toBuilder()
-                .setDefaultFrontCamera(!currentSettings.defaultFrontCamera)
+                .setDefaultLensFacing(lensFacing.toProto())
                 .build()
         }
     }
@@ -109,22 +114,10 @@ class LocalSettingsRepository @Inject constructor(
         }
     }
 
-    override suspend fun updateAvailableCameraLens(
-        frontLensAvailable: Boolean,
-        backLensAvailable: Boolean
-    ) {
-        // if a front or back lens is not present, the option to change
-        // the direction of the camera should be disabled
+    override suspend fun updateTargetFrameRate(targetFrameRate: Int) {
         jcaSettings.updateData { currentSettings ->
-            val newLensFacing = if (currentSettings.defaultFrontCamera) {
-                frontLensAvailable
-            } else {
-                false
-            }
             currentSettings.toBuilder()
-                .setDefaultFrontCamera(newLensFacing)
-                .setFrontCameraAvailable(frontLensAvailable)
-                .setBackCameraAvailable(backLensAvailable)
+                .setTargetFrameRate(targetFrameRate)
                 .build()
         }
     }
@@ -180,33 +173,11 @@ class LocalSettingsRepository @Inject constructor(
         }
     }
 
-    override suspend fun updateVideoStabilizationSupported(isSupported: Boolean) {
+    override suspend fun updateDynamicRange(dynamicRange: DynamicRange) {
         jcaSettings.updateData { currentSettings ->
             currentSettings.toBuilder()
-                .setStabilizeVideoSupported(isSupported)
+                .setDynamicRangeStatus(dynamicRange.toProto())
                 .build()
-        }
-    }
-
-    override suspend fun updatePreviewStabilizationSupported(isSupported: Boolean) {
-        jcaSettings.updateData { currentSettings ->
-            currentSettings.toBuilder()
-                .setStabilizeVideoSupported(isSupported)
-                .build()
-        }
-    }
-
-    private fun getSupportedStabilization(
-        previewSupport: Boolean,
-        videoSupport: Boolean
-    ): List<SupportedStabilizationMode> {
-        return buildList {
-            if (previewSupport && videoSupport) {
-                add(SupportedStabilizationMode.ON)
-            }
-            if (!previewSupport && videoSupport) {
-                add(SupportedStabilizationMode.HIGH_QUALITY)
-            }
         }
     }
 }

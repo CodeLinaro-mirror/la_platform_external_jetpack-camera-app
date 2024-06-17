@@ -16,10 +16,13 @@ android_test {
         "androidx.test.uiautomator_uiautomator",
         "androidx.test.espresso.core",
         "androidx.test.ext.junit",
+        "androidx.test.ext.truth",
         "androidx.test.rules",
         "androidx.test.core",
         "androidx.activity_activity-ktx",
         "kotlinx_coroutines_test",
+        "androidx.compose.ui_ui-test-junit4",
+        "androidx.compose.ui_ui-test",
     ],
     sdk_version: "34",
     test_suites: ["general-tests"],
@@ -30,6 +33,7 @@ android_test {
     data: [
         ":jetpack-camera-app",
     ],
-    //TODO(b/338257246): Remove exclusion after PreviewViewModel is removed in app module
-    exclude_srcs: ["java/com/google/jetpackcamera/FlashDeviceTest.kt"],
+    kotlincflags: [
+        "-Xcontext-receivers",
+    ],
 }
