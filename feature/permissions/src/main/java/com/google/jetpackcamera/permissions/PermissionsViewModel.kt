@@ -29,24 +29,23 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import javax.inject.Inject
 
 /**
  * A [ViewModel] for [PermissionsScreen]]
  */
 @OptIn(ExperimentalPermissionsApi::class)
-@HiltViewModel
-class PermissionsViewModel @Inject constructor(
-//    @Assisted permissionStates: MultiplePermissionsState
+@HiltViewModel(assistedFactory = PermissionsViewModel.Factory::class)
+class PermissionsViewModel @AssistedInject constructor(
+    @Assisted permissionStates: MultiplePermissionsState
 ) : ViewModel() {
-//    @AssistedFactory
-//    interface Factory {
-//        fun create(runtimeArg: MultiplePermissionsState): PermissionsViewModel
-//    }
+    @AssistedFactory
+    interface Factory {
+        fun create(runtimeArg: MultiplePermissionsState): PermissionsViewModel
+    }
 
     private val permissionQueue = mutableListOf<PermissionEnum>()
 
-    fun init(permissionStates: MultiplePermissionsState) {
+    init {
         permissionQueue.addAll(getRequestablePermissions(permissionStates))
     }
 
