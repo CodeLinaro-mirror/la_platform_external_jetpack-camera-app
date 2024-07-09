@@ -51,7 +51,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 private const val TAG = "PreviewViewModel"
 private const val IMAGE_CAPTURE_TRACE = "JCA Image Capture"
@@ -59,14 +58,13 @@ private const val IMAGE_CAPTURE_TRACE = "JCA Image Capture"
 /**
  * [ViewModel] for [PreviewScreen].
  */
-@HiltViewModel
-class PreviewViewModel @Inject constructor(
-//    @Assisted previewMode: PreviewMode,
+@HiltViewModel(assistedFactory = PreviewViewModel.Factory::class)
+class PreviewViewModel @AssistedInject constructor(
+    @Assisted previewMode: PreviewMode,
     private val cameraUseCase: CameraUseCase,
     private val constraintsRepository: ConstraintsRepository
 
 ) : ViewModel() {
-    private var previewMode: PreviewMode? = null
     private val _previewUiState: MutableStateFlow<PreviewUiState> =
         MutableStateFlow(PreviewUiState.NotReady)
 
@@ -90,8 +88,7 @@ class PreviewViewModel @Inject constructor(
         cameraUseCase.initialize(previewMode is PreviewMode.ExternalImageCaptureMode)
     }
 
-    fun init(previewMode: PreviewMode) {
-        this.previewMode = previewMode
+    init {
         viewModelScope.launch {
             combine(
                 cameraUseCase.getCurrentSettings().filterNotNull(),
@@ -395,10 +392,10 @@ class PreviewViewModel @Inject constructor(
         }
     }
 
-//    @AssistedFactory
-//    interface Factory {
-//        fun create(previewMode: PreviewMode): PreviewViewModel
-//    }
+    @AssistedFactory
+    interface Factory {
+        fun create(previewMode: PreviewMode): PreviewViewModel
+    }
 
     sealed interface ImageCaptureEvent {
         data class ImageSaved(
