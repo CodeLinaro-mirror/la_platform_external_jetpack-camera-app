@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 The Android Open Source Project
+ * Copyright (C) 2023 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.tooling.preview.Preview
+import com.google.jetpackcamera.feature.preview.CaptureModeToggleUiState
 import com.google.jetpackcamera.feature.preview.PreviewMode
 import com.google.jetpackcamera.feature.preview.PreviewUiState
 import com.google.jetpackcamera.feature.preview.R
@@ -46,11 +47,13 @@ import com.google.jetpackcamera.feature.preview.quicksettings.ui.QUICK_SETTINGS_
 import com.google.jetpackcamera.feature.preview.quicksettings.ui.QUICK_SETTINGS_FLASH_BUTTON
 import com.google.jetpackcamera.feature.preview.quicksettings.ui.QUICK_SETTINGS_FLIP_CAMERA_BUTTON
 import com.google.jetpackcamera.feature.preview.quicksettings.ui.QUICK_SETTINGS_HDR_BUTTON
+import com.google.jetpackcamera.feature.preview.quicksettings.ui.QUICK_SETTINGS_LOW_LIGHT_BOOST_BUTTON
 import com.google.jetpackcamera.feature.preview.quicksettings.ui.QUICK_SETTINGS_RATIO_BUTTON
 import com.google.jetpackcamera.feature.preview.quicksettings.ui.QuickFlipCamera
 import com.google.jetpackcamera.feature.preview.quicksettings.ui.QuickSetCaptureMode
 import com.google.jetpackcamera.feature.preview.quicksettings.ui.QuickSetFlash
 import com.google.jetpackcamera.feature.preview.quicksettings.ui.QuickSetHdr
+import com.google.jetpackcamera.feature.preview.quicksettings.ui.QuickSetLowLightBoost
 import com.google.jetpackcamera.feature.preview.quicksettings.ui.QuickSetRatio
 import com.google.jetpackcamera.feature.preview.quicksettings.ui.QuickSettingsGrid
 import com.google.jetpackcamera.settings.model.AspectRatio
@@ -58,7 +61,9 @@ import com.google.jetpackcamera.settings.model.CameraAppSettings
 import com.google.jetpackcamera.settings.model.CaptureMode
 import com.google.jetpackcamera.settings.model.DynamicRange
 import com.google.jetpackcamera.settings.model.FlashMode
+import com.google.jetpackcamera.settings.model.ImageOutputFormat
 import com.google.jetpackcamera.settings.model.LensFacing
+import com.google.jetpackcamera.settings.model.LowLightBoost
 import com.google.jetpackcamera.settings.model.SystemConstraints
 import com.google.jetpackcamera.settings.model.TYPICAL_SYSTEM_CONSTRAINTS
 import com.google.jetpackcamera.settings.model.forCurrentLens
@@ -77,6 +82,8 @@ fun QuickSettingsScreenOverlay(
     onAspectRatioClick: (aspectRation: AspectRatio) -> Unit,
     onCaptureModeClick: (captureMode: CaptureMode) -> Unit,
     onDynamicRangeClick: (dynamicRange: DynamicRange) -> Unit,
+    onImageOutputFormatClick: (imageOutputFormat: ImageOutputFormat) -> Unit,
+    onLowLightBoostClick: (lowLightBoost: LowLightBoost) -> Unit,
     modifier: Modifier = Modifier,
     isOpen: Boolean = false
 ) {
@@ -127,7 +134,9 @@ fun QuickSettingsScreenOverlay(
                 onFlashModeClick = onFlashModeClick,
                 onAspectRatioClick = onAspectRatioClick,
                 onCaptureModeClick = onCaptureModeClick,
-                onDynamicRangeClick = onDynamicRangeClick
+                onDynamicRangeClick = onDynamicRangeClick,
+                onImageOutputFormatClick = onImageOutputFormatClick,
+                onLowLightBoostClick = onLowLightBoostClick
             )
         }
     } else {
@@ -155,7 +164,9 @@ private fun ExpandedQuickSettingsUi(
     onCaptureModeClick: (captureMode: CaptureMode) -> Unit,
     shouldShowQuickSetting: IsExpandedQuickSetting,
     setVisibleQuickSetting: (IsExpandedQuickSetting) -> Unit,
-    onDynamicRangeClick: (dynamicRange: DynamicRange) -> Unit
+    onDynamicRangeClick: (dynamicRange: DynamicRange) -> Unit,
+    onImageOutputFormatClick: (imageOutputFormat: ImageOutputFormat) -> Unit,
+    onLowLightBoostClick: (lowLightBoost: LowLightBoost) -> Unit
 ) {
     Column(
         modifier =
@@ -209,18 +220,38 @@ private fun ExpandedQuickSettingsUi(
                             )
                         }
 
+                        val cameraConstraints = previewUiState.systemConstraints.forCurrentLens(
+                            currentCameraSettings
+                        )
                         add {
                             QuickSetHdr(
                                 modifier = Modifier.testTag(QUICK_SETTINGS_HDR_BUTTON),
-                                onClick = { d: DynamicRange -> onDynamicRangeClick(d) },
+                                onClick = { d: DynamicRange, i: ImageOutputFormat ->
+                                    onDynamicRangeClick(d)
+                                    onImageOutputFormatClick(i)
+                                },
                                 selectedDynamicRange = currentCameraSettings.dynamicRange,
+                                selectedImageOutputFormat = currentCameraSettings.imageFormat,
                                 hdrDynamicRange = currentCameraSettings.defaultHdrDynamicRange,
-                                enabled = previewUiState.previewMode !is
-                                    PreviewMode.ExternalImageCaptureMode &&
-                                    previewUiState.systemConstraints.forCurrentLens(
-                                        currentCameraSettings
-                                    )
-                                        ?.let { it.supportedDynamicRanges.size > 1 } ?: false
+                                hdrImageFormat = currentCameraSettings.defaultHdrImageOutputFormat,
+                                hdrDynamicRangeSupported = cameraConstraints?.let
+                                    { it.supportedDynamicRanges.size > 1 } ?: false,
+                                hdrImageFormatSupported =
+                                cameraConstraints?.supportedImageFormatsMap?.get(
+                                    currentCameraSettings.captureMode
+                                )?.let { it.size > 1 } ?: false,
+                                previewMode = previewUiState.previewMode
+                            )
+                        }
+
+                        add {
+                            QuickSetLowLightBoost(
+                                modifier = Modifier.testTag(QUICK_SETTINGS_LOW_LIGHT_BOOST_BUTTON),
+                                onClick = {
+                                        l: LowLightBoost ->
+                                    onLowLightBoostClick(l)
+                                },
+                                selectedLowLightBoost = currentCameraSettings.lowLightBoost
                             )
                         }
                     }
@@ -245,7 +276,8 @@ fun ExpandedQuickSettingsUiPreview() {
             previewUiState = PreviewUiState.Ready(
                 currentCameraSettings = CameraAppSettings(),
                 systemConstraints = TYPICAL_SYSTEM_CONSTRAINTS,
-                previewMode = PreviewMode.StandardMode {}
+                previewMode = PreviewMode.StandardMode {},
+                captureModeToggleUiState = CaptureModeToggleUiState.Invisible
             ),
             currentCameraSettings = CameraAppSettings(),
             systemConstraints = TYPICAL_SYSTEM_CONSTRAINTS,
@@ -255,7 +287,9 @@ fun ExpandedQuickSettingsUiPreview() {
             setVisibleQuickSetting = { },
             onAspectRatioClick = { },
             onCaptureModeClick = { },
-            onDynamicRangeClick = { }
+            onDynamicRangeClick = { },
+            onImageOutputFormatClick = { },
+            onLowLightBoostClick = { }
         )
     }
 }
@@ -268,7 +302,8 @@ fun ExpandedQuickSettingsUiPreview_WithHdr() {
             previewUiState = PreviewUiState.Ready(
                 currentCameraSettings = CameraAppSettings(),
                 systemConstraints = TYPICAL_SYSTEM_CONSTRAINTS,
-                previewMode = PreviewMode.StandardMode {}
+                previewMode = PreviewMode.StandardMode {},
+                captureModeToggleUiState = CaptureModeToggleUiState.Invisible
             ),
             currentCameraSettings = CameraAppSettings(dynamicRange = DynamicRange.HLG10),
             systemConstraints = TYPICAL_SYSTEM_CONSTRAINTS_WITH_HDR,
@@ -278,7 +313,9 @@ fun ExpandedQuickSettingsUiPreview_WithHdr() {
             setVisibleQuickSetting = { },
             onAspectRatioClick = { },
             onCaptureModeClick = { },
-            onDynamicRangeClick = { }
+            onDynamicRangeClick = { },
+            onImageOutputFormatClick = { },
+            onLowLightBoostClick = { }
         )
     }
 }
