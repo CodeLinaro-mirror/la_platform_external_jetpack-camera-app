@@ -661,7 +661,7 @@ constructor(
                 addUseCase(videoCaptureUseCase!!)
             }
 
-//            effect?.let { addEffect(it) }
+            effect?.let { addEffect(it) }
 
             captureMode = sessionSettings.captureMode
         }.build()
