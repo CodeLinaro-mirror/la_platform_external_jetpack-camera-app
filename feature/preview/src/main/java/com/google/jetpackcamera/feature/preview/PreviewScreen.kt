@@ -15,78 +15,73 @@
  */
 package com.google.jetpackcamera.feature.preview
 
+import android.annotation.SuppressLint
+import android.content.ContentResolver
 import android.net.Uri
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
-import androidx.camera.core.Preview.SurfaceProvider
+import androidx.camera.core.SurfaceRequest
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.testTagsAsResourceId
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.repeatOnLifecycle
-import com.google.jetpackcamera.feature.preview.ui.CAPTURE_BUTTON
-import com.google.jetpackcamera.feature.preview.ui.CaptureButton
-import com.google.jetpackcamera.feature.preview.ui.FlipCameraButton
+import androidx.lifecycle.compose.LifecycleStartEffect
+import androidx.tracing.Trace
+import com.google.jetpackcamera.feature.preview.quicksettings.QuickSettingsScreenOverlay
+import com.google.jetpackcamera.feature.preview.ui.CameraControlsOverlay
 import com.google.jetpackcamera.feature.preview.ui.PreviewDisplay
 import com.google.jetpackcamera.feature.preview.ui.ScreenFlashScreen
-import com.google.jetpackcamera.feature.preview.ui.SettingsNavButton
-import com.google.jetpackcamera.feature.preview.ui.ShowTestableToast
-import com.google.jetpackcamera.feature.preview.ui.StabilizationIcon
-import com.google.jetpackcamera.feature.preview.ui.TestingButton
-import com.google.jetpackcamera.feature.preview.ui.ZoomScaleText
-import com.google.jetpackcamera.feature.quicksettings.QuickSettingsScreenOverlay
-import com.google.jetpackcamera.feature.quicksettings.ui.QuickSettingsIndicators
-import com.google.jetpackcamera.feature.quicksettings.ui.ToggleQuickSettingsButton
+import com.google.jetpackcamera.feature.preview.ui.TestableSnackbar
+import com.google.jetpackcamera.feature.preview.ui.TestableToast
+import com.google.jetpackcamera.feature.preview.ui.debouncedOrientationFlow
+import com.google.jetpackcamera.settings.model.AspectRatio
 import com.google.jetpackcamera.settings.model.CaptureMode
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.awaitCancellation
+import com.google.jetpackcamera.settings.model.DEFAULT_CAMERA_APP_SETTINGS
+import com.google.jetpackcamera.settings.model.DynamicRange
+import com.google.jetpackcamera.settings.model.FlashMode
+import com.google.jetpackcamera.settings.model.ImageOutputFormat
+import com.google.jetpackcamera.settings.model.LensFacing
+import com.google.jetpackcamera.settings.model.LowLightBoost
+import com.google.jetpackcamera.settings.model.TYPICAL_SYSTEM_CONSTRAINTS
+import kotlinx.coroutines.flow.transformWhile
 
 private const val TAG = "PreviewScreen"
-private const val ZOOM_SCALE_SHOW_TIMEOUT_MS = 3000L
 
 /**
  * Screen used for the Preview feature.
  */
-@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun PreviewScreen(
-    onPreviewViewModel: (PreviewViewModel) -> Unit,
     onNavigateToSettings: () -> Unit,
-    viewModel: PreviewViewModel = hiltViewModel(),
-    previewMode: PreviewMode
+    previewMode: PreviewMode,
+    modifier: Modifier = Modifier,
+    onRequestWindowColorMode: (Int) -> Unit = {},
+    onFirstFrameCaptureCompleted: () -> Unit = {},
+    viewModel: PreviewViewModel = hiltViewModel<PreviewViewModel, PreviewViewModel.Factory>
+        { factory -> factory.create(previewMode) }
 ) {
     Log.d(TAG, "PreviewScreen")
 
@@ -95,257 +90,189 @@ fun PreviewScreen(
     val screenFlashUiState: ScreenFlash.ScreenFlashUiState
         by viewModel.screenFlash.screenFlashUiState.collectAsState()
 
-    val lifecycleOwner = LocalLifecycleOwner.current
+    val surfaceRequest: SurfaceRequest?
+        by viewModel.surfaceRequest.collectAsState()
 
-    val deferredSurfaceProvider = remember { CompletableDeferred<SurfaceProvider>() }
-
-    val zoomScale by remember { mutableFloatStateOf(1f) }
-
-    var zoomScaleShow by remember { mutableStateOf(false) }
-
-    val zoomHandler = Handler(Looper.getMainLooper())
-
-    onPreviewViewModel(viewModel)
-
-    LaunchedEffect(lifecycleOwner) {
-        val surfaceProvider = deferredSurfaceProvider.await()
-        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            viewModel.runCamera(surfaceProvider)
-            try {
-                awaitCancellation()
-            } finally {
-                viewModel.stopCamera()
-            }
+    LifecycleStartEffect(Unit) {
+        viewModel.startCamera()
+        onStopOrDispose {
+            viewModel.stopCamera()
         }
     }
-    if (previewUiState.cameraState == CameraState.NOT_READY) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            CircularProgressIndicator(modifier = Modifier.size(50.dp))
-            Text(text = stringResource(R.string.camera_not_ready), color = Color.White)
+
+    if (Trace.isEnabled()) {
+        LaunchedEffect(onFirstFrameCaptureCompleted) {
+            snapshotFlow { previewUiState }
+                .transformWhile {
+                    var continueCollecting = true
+                    (it as? PreviewUiState.Ready)?.let { ready ->
+                        if (ready.sessionFirstFrameTimestamp > 0) {
+                            emit(Unit)
+                            continueCollecting = false
+                        }
+                    }
+                    continueCollecting
+                }.collect {
+                    onFirstFrameCaptureCompleted()
+                }
         }
-    } else if (previewUiState.cameraState == CameraState.READY) {
-        Box(
-            modifier = Modifier.semantics {
-                testTagsAsResourceId = true
+    }
+
+    when (val currentUiState = previewUiState) {
+        is PreviewUiState.NotReady -> LoadingScreen()
+        is PreviewUiState.Ready -> {
+            val context = LocalContext.current
+            LaunchedEffect(Unit) {
+                debouncedOrientationFlow(context).collect(viewModel::setDisplayRotation)
             }
-        ) {
+
+            ContentScreen(
+                modifier = modifier,
+                previewUiState = currentUiState,
+                screenFlashUiState = screenFlashUiState,
+                surfaceRequest = surfaceRequest,
+                onNavigateToSettings = onNavigateToSettings,
+                onClearUiScreenBrightness = viewModel.screenFlash::setClearUiScreenBrightness,
+                onSetLensFacing = viewModel::setLensFacing,
+                onTapToFocus = viewModel::tapToFocus,
+                onChangeZoomScale = viewModel::setZoomScale,
+                onChangeFlash = viewModel::setFlash,
+                onChangeAspectRatio = viewModel::setAspectRatio,
+                onChangeCaptureMode = viewModel::setCaptureMode,
+                onChangeDynamicRange = viewModel::setDynamicRange,
+                onLowLightBoost = viewModel::setLowLightBoost,
+                onChangeImageFormat = viewModel::setImageFormat,
+                onToggleWhenDisabled = viewModel::showSnackBarForDisabledHdrToggle,
+                onToggleQuickSettings = viewModel::toggleQuickSettings,
+                onMuteAudio = viewModel::setAudioMuted,
+                onCaptureImage = viewModel::captureImage,
+                onCaptureImageWithUri = viewModel::captureImageWithUri,
+                onStartVideoRecording = viewModel::startVideoRecording,
+                onStopVideoRecording = viewModel::stopVideoRecording,
+                onToastShown = viewModel::onToastShown,
+                onRequestWindowColorMode = onRequestWindowColorMode,
+                onSnackBarResult = viewModel::onSnackBarResult
+            )
+        }
+    }
+}
+
+@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
+@Composable
+private fun ContentScreen(
+    previewUiState: PreviewUiState.Ready,
+    screenFlashUiState: ScreenFlash.ScreenFlashUiState,
+    surfaceRequest: SurfaceRequest?,
+    modifier: Modifier = Modifier,
+    onNavigateToSettings: () -> Unit = {},
+    onClearUiScreenBrightness: (Float) -> Unit = {},
+    onSetLensFacing: (newLensFacing: LensFacing) -> Unit = {},
+    onTapToFocus: (x: Float, y: Float) -> Unit = { _, _ -> },
+    onChangeZoomScale: (Float) -> Unit = {},
+    onChangeFlash: (FlashMode) -> Unit = {},
+    onChangeAspectRatio: (AspectRatio) -> Unit = {},
+    onChangeCaptureMode: (CaptureMode) -> Unit = {},
+    onChangeDynamicRange: (DynamicRange) -> Unit = {},
+    onLowLightBoost: (LowLightBoost) -> Unit = {},
+    onChangeImageFormat: (ImageOutputFormat) -> Unit = {},
+    onToggleWhenDisabled: (CaptureModeToggleUiState.DisabledReason) -> Unit = {},
+    onToggleQuickSettings: () -> Unit = {},
+    onMuteAudio: (Boolean) -> Unit = {},
+    onCaptureImage: () -> Unit = {},
+    onCaptureImageWithUri: (
+        ContentResolver,
+        Uri?,
+        Boolean,
+        (PreviewViewModel.ImageCaptureEvent) -> Unit
+    ) -> Unit = { _, _, _, _ -> },
+    onStartVideoRecording: () -> Unit = {},
+    onStopVideoRecording: () -> Unit = {},
+    onToastShown: () -> Unit = {},
+    onRequestWindowColorMode: (Int) -> Unit = {},
+    onSnackBarResult: (String) -> Unit = {}
+) {
+    val snackbarHostState = remember { SnackbarHostState() }
+    Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
+    ) {
+        val lensFacing = remember(previewUiState) {
+            previewUiState.currentCameraSettings.cameraLensFacing
+        }
+
+        val onFlipCamera = remember(lensFacing) {
+            {
+                onSetLensFacing(lensFacing.flip())
+            }
+        }
+
+        val isMuted = remember(previewUiState) {
+            previewUiState.currentCameraSettings.audioMuted
+        }
+        val onToggleMuteAudio = remember(isMuted) {
+            {
+                onMuteAudio(!isMuted)
+            }
+        }
+
+        Box(modifier.fillMaxSize()) {
             // display camera feed. this stays behind everything else
             PreviewDisplay(
-                onFlipCamera = viewModel::flipCamera,
-                onTapToFocus = viewModel::tapToFocus,
-                onZoomChange = { zoomChange: Float ->
-                    viewModel.setZoomScale(zoomChange)
-                    zoomScaleShow = true
-                    zoomHandler.postDelayed({ zoomScaleShow = false }, ZOOM_SCALE_SHOW_TIMEOUT_MS)
-                },
+                previewUiState = previewUiState,
+                onFlipCamera = onFlipCamera,
+                onTapToFocus = onTapToFocus,
+                onZoomChange = onChangeZoomScale,
                 aspectRatio = previewUiState.currentCameraSettings.aspectRatio,
-                deferredSurfaceProvider = deferredSurfaceProvider
+                surfaceRequest = surfaceRequest,
+                onRequestWindowColorMode = onRequestWindowColorMode
             )
 
             QuickSettingsScreenOverlay(
                 modifier = Modifier,
+                previewUiState = previewUiState,
                 isOpen = previewUiState.quickSettingsIsOpen,
-                toggleIsOpen = { viewModel.toggleQuickSettings() },
+                toggleIsOpen = onToggleQuickSettings,
                 currentCameraSettings = previewUiState.currentCameraSettings,
-                onLensFaceClick = viewModel::flipCamera,
-                onFlashModeClick = viewModel::setFlash,
-                onAspectRatioClick = {
-                    viewModel.setAspectRatio(it)
-                }
-                // onTimerClick = {}/*TODO*/
+                systemConstraints = previewUiState.systemConstraints,
+                onLensFaceClick = onSetLensFacing,
+                onFlashModeClick = onChangeFlash,
+                onAspectRatioClick = onChangeAspectRatio,
+                onCaptureModeClick = onChangeCaptureMode,
+                onDynamicRangeClick = onChangeDynamicRange,
+                onImageOutputFormatClick = onChangeImageFormat,
+                onLowLightBoostClick = onLowLightBoost
             )
             // relative-grid style overlay on top of preview display
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-            ) {
-                // hide settings, quickSettings, and quick capture mode button
-                when (previewUiState.videoRecordingState) {
-                    VideoRecordingState.ACTIVE -> {}
-                    VideoRecordingState.INACTIVE -> {
-                        // 3-segmented row to keep quick settings button centered
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(IntrinsicSize.Min)
-                        ) {
-                            // row to left of quick settings button
-                            Row(
-                                modifier = Modifier
-                                    .weight(1f),
-                                horizontalArrangement = Arrangement.Start,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                // button to open default settings page
-                                SettingsNavButton(
-                                    modifier = Modifier
-                                        .padding(12.dp),
-                                    onNavigateToSettings = onNavigateToSettings
-                                )
-                                if (!previewUiState.quickSettingsIsOpen) {
-                                    QuickSettingsIndicators(
-                                        currentCameraSettings = previewUiState
-                                            .currentCameraSettings,
-                                        onFlashModeClick = viewModel::setFlash
-                                    )
-                                }
-                            }
-                            // quick settings button
-                            ToggleQuickSettingsButton(
-                                toggleDropDown = { viewModel.toggleQuickSettings() },
-                                isOpen = previewUiState.quickSettingsIsOpen
-                            )
-
-                            // Row to right of quick settings
-                            Row(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxHeight(),
-                                horizontalArrangement = Arrangement.SpaceEvenly,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                TestingButton(
-                                    modifier = Modifier
-                                        .testTag("ToggleCaptureMode"),
-                                    onClick = { viewModel.toggleCaptureMode() },
-                                    text = stringResource(
-                                        when (previewUiState.currentCameraSettings.captureMode) {
-                                            CaptureMode.SINGLE_STREAM ->
-                                                R.string.capture_mode_single_stream
-
-                                            CaptureMode.MULTI_STREAM ->
-                                                R.string.capture_mode_multi_stream
-                                        }
-                                    )
-                                )
-                                StabilizationIcon(
-                                    supportedStabilizationMode = previewUiState
-                                        .currentCameraSettings.supportedStabilizationModes,
-                                    videoStabilization = previewUiState
-                                        .currentCameraSettings.videoCaptureStabilization,
-                                    previewStabilization = previewUiState
-                                        .currentCameraSettings.previewStabilization
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // this component places a gap in the center of the column that will push out the top
-                // and bottom edges. This will also allow the addition of vertical button bars on the
-                // sides of the screen
-                Row(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                ) {}
-
-                if (zoomScaleShow) {
-                    ZoomScaleText(zoomScale = zoomScale)
-                }
-
-                // 3-segmented row to keep capture button centered
-                Row(
-                    modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .height(IntrinsicSize.Min)
-                ) {
-                    when (previewUiState.videoRecordingState) {
-                        // hide first segment while recording in progress
-                        VideoRecordingState.ACTIVE -> {
-                            Spacer(
-                                modifier = Modifier
-                                    .fillMaxHeight()
-                                    .weight(1f)
-                            )
-                        }
-                        // show first segment when not recording
-                        VideoRecordingState.INACTIVE -> {
-                            Row(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxHeight(),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                if (!previewUiState.quickSettingsIsOpen) {
-                                    FlipCameraButton(
-                                        onClick = { viewModel.flipCamera() },
-                                        // enable only when phone has front and rear camera
-                                        enabledCondition =
-                                        previewUiState
-                                            .currentCameraSettings
-                                            .isBackCameraAvailable &&
-                                            previewUiState
-                                                .currentCameraSettings
-                                                .isFrontCameraAvailable
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    val multipleEventsCutter = remember { MultipleEventsCutter() }
-                    val context = LocalContext.current
-                    CaptureButton(
-                        modifier = Modifier
-                            .testTag(CAPTURE_BUTTON),
-                        onClick = {
-                            multipleEventsCutter.processEvent {
-                                when (previewMode) {
-                                    is PreviewMode.StandardMode -> {
-                                        viewModel.captureImage()
-                                    }
-
-                                    is PreviewMode.ExternalImageCaptureMode -> {
-                                        viewModel.captureImage(
-                                            context.contentResolver,
-                                            previewMode.imageCaptureUri,
-                                            previewMode.onImageCapture
-                                        )
-                                    }
-                                }
-                            }
-                            if (previewUiState.quickSettingsIsOpen) {
-                                viewModel.toggleQuickSettings()
-                            }
-                        },
-                        onLongPress = {
-                            viewModel.startVideoRecording()
-                            if (previewUiState.quickSettingsIsOpen) {
-                                viewModel.toggleQuickSettings()
-                            }
-                        },
-                        onRelease = { viewModel.stopVideoRecording() },
-                        videoRecordingState = previewUiState.videoRecordingState
-                    )
-                    // You can replace this row so long as the weight of the component is 1f to
-                    // ensure the capture button remains centered.
-                    Row(
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            .weight(1f)
-                    ) {
-                        /*TODO("Place other components here") */
-                    }
-                }
-            }
+            CameraControlsOverlay(
+                previewUiState = previewUiState,
+                onNavigateToSettings = onNavigateToSettings,
+                onFlipCamera = onFlipCamera,
+                onChangeFlash = onChangeFlash,
+                onMuteAudio = onToggleMuteAudio,
+                onToggleQuickSettings = onToggleQuickSettings,
+                onChangeImageFormat = onChangeImageFormat,
+                onToggleWhenDisabled = onToggleWhenDisabled,
+                onCaptureImage = onCaptureImage,
+                onCaptureImageWithUri = onCaptureImageWithUri,
+                onStartVideoRecording = onStartVideoRecording,
+                onStopVideoRecording = onStopVideoRecording
+            )
             // displays toast when there is a message to show
             if (previewUiState.toastMessageToShow != null) {
-                ShowTestableToast(
-                    modifier = Modifier
-                        .testTag(previewUiState.toastMessageToShow!!.testTag),
-                    toastMessage = previewUiState.toastMessageToShow!!,
-                    onToastShown = viewModel::onToastShown
+                TestableToast(
+                    modifier = Modifier.testTag(previewUiState.toastMessageToShow.testTag),
+                    toastMessage = previewUiState.toastMessageToShow,
+                    onToastShown = onToastShown
                 )
             }
 
+            if (previewUiState.snackBarToShow != null) {
+                TestableSnackbar(
+                    modifier = Modifier.testTag(previewUiState.snackBarToShow.testTag),
+                    snackbarToShow = previewUiState.snackBarToShow,
+                    snackbarHostState = snackbarHostState,
+                    onSnackbarResult = onSnackBarResult
+                )
+            }
             // Screen flash overlay that stays on top of everything but invisible normally. This should
             // not be enabled based on whether screen flash is enabled because a previous image capture
             // may still be running after flash mode change and clear actions (e.g. brightness restore)
@@ -353,27 +280,55 @@ fun PreviewScreen(
             // if the relevant states are no longer changing.
             ScreenFlashScreen(
                 screenFlashUiState = screenFlashUiState,
-                onInitialBrightnessCalculated = viewModel.screenFlash::setClearUiScreenBrightness
+                onInitialBrightnessCalculated = onClearUiScreenBrightness
             )
         }
     }
 }
 
-/**
- * This interface is determined before the Preview UI is launched and passed into PreviewScreen. The
- * UX differs depends on which mode the Preview is launched under.
- */
-sealed interface PreviewMode {
-    /**
-     * The default mode for the app.
-     */
-    object StandardMode : PreviewMode
-
-    /**
-     * Under this mode, the app is launched by an external intent to capture an image.
-     */
-    data class ExternalImageCaptureMode(
-        val imageCaptureUri: Uri?,
-        val onImageCapture: (PreviewViewModel.ImageCaptureEvent) -> Unit
-    ) : PreviewMode
+@Composable
+private fun LoadingScreen(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color.Black),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        CircularProgressIndicator(modifier = Modifier.size(50.dp))
+        Text(text = stringResource(R.string.camera_not_ready), color = Color.White)
+    }
 }
+
+@Preview
+@Composable
+private fun ContentScreenPreview() {
+    MaterialTheme {
+        ContentScreen(
+            previewUiState = FAKE_PREVIEW_UI_STATE_READY,
+            screenFlashUiState = ScreenFlash.ScreenFlashUiState(),
+            surfaceRequest = null
+        )
+    }
+}
+
+@Preview
+@Composable
+private fun ContentScreen_WhileRecording() {
+    MaterialTheme(colorScheme = darkColorScheme()) {
+        ContentScreen(
+            previewUiState = FAKE_PREVIEW_UI_STATE_READY.copy(
+                videoRecordingState = VideoRecordingState.ACTIVE
+            ),
+            screenFlashUiState = ScreenFlash.ScreenFlashUiState(),
+            surfaceRequest = null
+        )
+    }
+}
+
+private val FAKE_PREVIEW_UI_STATE_READY = PreviewUiState.Ready(
+    currentCameraSettings = DEFAULT_CAMERA_APP_SETTINGS,
+    systemConstraints = TYPICAL_SYSTEM_CONSTRAINTS,
+    previewMode = PreviewMode.StandardMode {},
+    captureModeToggleUiState = CaptureModeToggleUiState.Invisible
+)

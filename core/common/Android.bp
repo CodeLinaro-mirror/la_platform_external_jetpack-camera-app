@@ -9,11 +9,12 @@ android_library {
     srcs: ["src/main/**/*.kt"],
     static_libs: [
         "androidx.core_core-ktx",
-	"hilt_android",
+        "androidx.tracing_tracing-ktx",
+        "hilt_android",
         "androidx.appcompat_appcompat",
-	"com.google.android.material_material",
+        "com.google.android.material_material",
     ],
     sdk_version: "34",
     min_sdk_version: "21",
-    manifest:"src/main/AndroidManifest.xml"
+    manifest: "src/main/AndroidManifest.xml",
 }

@@ -21,11 +21,12 @@ pluginManagement {
         gradlePluginPortal()
     }
 }
+@Suppress("UnstableApiUsage")
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         maven {
-            setUrl("https://androidx.dev/snapshots/builds/11359450/artifacts/repository")
+            setUrl("https://androidx.dev/snapshots/builds/11932573/artifacts/repository")
         }
         google()
         mavenCentral()
@@ -34,10 +35,9 @@ dependencyResolutionManagement {
 rootProject.name = "Jetpack Camera"
 include(":app")
 include(":feature:preview")
-include(":domain:camera")
-include(":camera-viewfinder-compose")
+include(":core:camera")
 include(":feature:settings")
 include(":data:settings")
 include(":core:common")
-include(":feature:quicksettings")
 include(":benchmark")
+include(":feature:permissions")

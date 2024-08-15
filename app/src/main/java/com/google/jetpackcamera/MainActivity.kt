@@ -15,14 +15,20 @@
  */
 package com.google.jetpackcamera
 
+import android.app.Activity
+import android.content.Intent
+import android.content.pm.ActivityInfo
+import android.hardware.Camera
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
+import android.provider.Settings
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import androidx.annotation.VisibleForTesting
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -38,24 +44,32 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.tracing.Trace
 import com.google.jetpackcamera.MainActivityUiState.Loading
 import com.google.jetpackcamera.MainActivityUiState.Success
+import com.google.jetpackcamera.core.common.traceFirstFrameMainActivity
 import com.google.jetpackcamera.feature.preview.PreviewMode
 import com.google.jetpackcamera.feature.preview.PreviewViewModel
 import com.google.jetpackcamera.settings.model.DarkMode
 import com.google.jetpackcamera.ui.JcaApp
 import com.google.jetpackcamera.ui.theme.JetpackCameraTheme
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+
+private const val TAG = "MainActivity"
 
 /**
  * Activity for the JetpackCameraApp.
@@ -64,9 +78,8 @@ import kotlinx.coroutines.launch
 class MainActivity : Hilt_MainActivity() {
     private val viewModel: MainActivityViewModel by viewModels()
 
-    @VisibleForTesting
-    var previewViewModel: PreviewViewModel? = null
-
+    @RequiresApi(Build.VERSION_CODES.M)
+    @OptIn(ExperimentalComposeUiApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         var uiState: MainActivityUiState by mutableStateOf(Loading)
@@ -80,6 +93,18 @@ class MainActivity : Hilt_MainActivity() {
                     .collect()
             }
         }
+
+        var firstFrameComplete: CompletableDeferred<Unit>? = null
+        if (Trace.isEnabled()) {
+            firstFrameComplete = CompletableDeferred()
+            // start trace between app starting and the earliest possible completed capture
+            lifecycleScope.launch {
+                traceFirstFrameMainActivity(cookie = 0) {
+                    firstFrameComplete.await()
+                }
+            }
+        }
+
         setContent {
             when (uiState) {
                 Loading -> {
@@ -102,12 +127,30 @@ class MainActivity : Hilt_MainActivity() {
                         dynamicColor = false
                     ) {
                         Surface(
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .semantics {
+                                    testTagsAsResourceId = true
+                                },
                             color = MaterialTheme.colorScheme.background
                         ) {
                             JcaApp(
-                                onPreviewViewModel = { previewViewModel = it },
-                                previewMode = getPreviewMode()
+                                previewMode = getPreviewMode(),
+                                openAppSettings = ::openAppSettings,
+                                onRequestWindowColorMode = { colorMode ->
+                                    // Window color mode APIs require API level 26+
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                        Log.d(
+                                            TAG,
+                                            "Setting window color mode to:" +
+                                                " ${colorMode.toColorModeString()}"
+                                        )
+                                        window?.colorMode = colorMode
+                                    }
+                                },
+                                onFirstFrameCaptureCompleted = {
+                                    firstFrameComplete?.complete(Unit)
+                                }
                             )
                         }
                     }
@@ -118,7 +161,13 @@ class MainActivity : Hilt_MainActivity() {
 
     private fun getPreviewMode(): PreviewMode {
         if (intent == null || MediaStore.ACTION_IMAGE_CAPTURE != intent.action) {
-            return PreviewMode.StandardMode
+            return PreviewMode.StandardMode { event ->
+                if (event is PreviewViewModel.ImageCaptureEvent.ImageSaved) {
+                    val intent = Intent(Camera.ACTION_NEW_PICTURE)
+                    intent.setData(event.savedUri)
+                    sendBroadcast(intent)
+                }
+            }
         } else {
             var uri = if (intent.extras == null ||
                 !intent.extras!!.containsKey(MediaStore.EXTRA_OUTPUT)
@@ -137,7 +186,7 @@ class MainActivity : Hilt_MainActivity() {
                 uri = intent.clipData!!.getItemAt(0).uri
             }
             return PreviewMode.ExternalImageCaptureMode(uri) { event ->
-                if (event == PreviewViewModel.ImageCaptureEvent.ImageSaved) {
+                if (event is PreviewViewModel.ImageCaptureEvent.ImageSaved) {
                     setResult(RESULT_OK)
                     finish()
                 }
@@ -157,4 +206,24 @@ private fun isInDarkMode(uiState: MainActivityUiState): Boolean = when (uiState)
         DarkMode.LIGHT -> false
         DarkMode.SYSTEM -> isSystemInDarkTheme()
     }
+}
+
+@RequiresApi(Build.VERSION_CODES.O)
+private fun Int.toColorModeString(): String {
+    return when (this) {
+        ActivityInfo.COLOR_MODE_DEFAULT -> "COLOR_MODE_DEFAULT"
+        ActivityInfo.COLOR_MODE_HDR -> "COLOR_MODE_HDR"
+        ActivityInfo.COLOR_MODE_WIDE_COLOR_GAMUT -> "COLOR_MODE_WIDE_COLOR_GAMUT"
+        else -> "<Unknown>"
+    }
+}
+
+/**
+ * Open the app settings when necessary. I.e. to enable permissions that have been denied by a user
+ */
+private fun Activity.openAppSettings() {
+    Intent(
+        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+        Uri.fromParts("package", packageName, null)
+    ).also(::startActivity)
 }

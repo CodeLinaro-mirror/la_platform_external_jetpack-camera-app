@@ -23,25 +23,30 @@ plugins {
 
 android {
     namespace = "com.google.jetpackcamera.feature.preview"
-    compileSdk = 34
+    compileSdk = libs.versions.compileSdk.get().toInt()
+    compileSdkPreview = libs.versions.compileSdkPreview.get()
 
     defaultConfig {
-        minSdk = 21
-        targetSdk = 34
+        minSdk = libs.versions.minSdk.get().toInt()
+        testOptions.targetSdk = libs.versions.targetSdk.get().toInt()
+        lint.targetSdk = libs.versions.targetSdk.get().toInt()
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        consumerProguardFiles("consumer-rules.pro")
     }
 
-    buildTypes {
-        release {
-            isMinifyEnabled = true
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
+    flavorDimensions += "flavor"
+    productFlavors {
+        create("stable") {
+            dimension = "flavor"
+            isDefault = true
+        }
+
+        create("preview") {
+            dimension = "flavor"
+            targetSdkPreview = libs.versions.targetSdkPreview.get()
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -50,16 +55,36 @@ android {
         jvmToolchain(17)
     }
     buildFeatures {
+        buildConfig = true
         compose = true
     }
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.4.0"
+        kotlinCompilerExtensionVersion = libs.versions.composeCompiler.get()
     }
+
+    @Suppress("UnstableApiUsage")
     testOptions {
         unitTests {
             isReturnDefaultValues = true
             isIncludeAndroidResources = true
         }
+        managedDevices {
+            localDevices {
+                create("pixel2Api28") {
+                    device = "Pixel 2"
+                    apiLevel = 28
+                }
+                create("pixel8Api34") {
+                    device = "Pixel 8"
+                    apiLevel = 34
+                    systemImageSource = "aosp_atd"
+                }
+            }
+        }
+    }
+
+    kotlinOptions {
+        freeCompilerArgs += "-Xcontext-receivers"
     }
 }
 
@@ -71,6 +96,7 @@ dependencies {
 
     // Compose - Material Design 3
     implementation(libs.compose.material3)
+    implementation(libs.compose.material.icons.extended)
 
     // Compose - Android Studio Preview support
     implementation(libs.compose.ui.tooling.preview)
@@ -78,6 +104,10 @@ dependencies {
 
     // Compose - Integration with ViewModels with Navigation and Hilt
     implementation(libs.hilt.navigation.compose)
+
+    // Compose - Lifecycle utilities
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.runtime.compose)
 
     // Compose - Testing
     androidTestImplementation(libs.compose.junit)
@@ -88,20 +118,21 @@ dependencies {
 
     // Testing
     testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
+    testImplementation(libs.truth)
     testImplementation(libs.mockito.core)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.robolectric)
     debugImplementation(libs.androidx.test.monitor)
     implementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.espresso.core)
 
-    // Guava
-    implementation(libs.kotlinx.coroutines.guava)
+    // Futures
+    implementation(libs.futures.ktx)
 
     // CameraX
     implementation(libs.camera.core)
-    implementation(libs.camera.view)
+    implementation(libs.camera.viewfinder.compose)
 
     // Hilt
     implementation(libs.dagger.hilt.android)
@@ -110,11 +141,13 @@ dependencies {
     //Tracing
     implementation(libs.androidx.tracing)
 
+    implementation(libs.kotlinx.atomicfu)
+
     // Project dependencies
     implementation(project(":data:settings"))
-    implementation(project(":domain:camera"))
-    implementation(project(":camera-viewfinder-compose"))
-    implementation(project(":feature:quicksettings"))
+    implementation(project(":core:camera"))
+    implementation(project(":core:common"))
+    testImplementation(project(":core:common"))
 }
 
 // Allow references to generated code
