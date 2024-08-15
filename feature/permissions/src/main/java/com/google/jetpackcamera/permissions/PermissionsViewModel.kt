@@ -25,28 +25,28 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlin.collections.removeFirst as ktRemoveFirst // alias must be used now. see https://issuetracker.google.com/348683480
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import javax.inject.Inject
 
 /**
  * A [ViewModel] for [PermissionsScreen]]
  */
 @OptIn(ExperimentalPermissionsApi::class)
-@HiltViewModel
-class PermissionsViewModel @Inject constructor(
-//    @Assisted permissionStates: MultiplePermissionsState
+@HiltViewModel(assistedFactory = PermissionsViewModel.Factory::class)
+class PermissionsViewModel @AssistedInject constructor(
+    @Assisted permissionStates: MultiplePermissionsState
 ) : ViewModel() {
-//    @AssistedFactory
-//    interface Factory {
-//        fun create(runtimeArg: MultiplePermissionsState): PermissionsViewModel
-//    }
+    @AssistedFactory
+    interface Factory {
+        fun create(runtimeArg: MultiplePermissionsState): PermissionsViewModel
+    }
 
     private val permissionQueue = mutableListOf<PermissionEnum>()
 
-    fun init(permissionStates: MultiplePermissionsState) {
+    init {
         permissionQueue.addAll(getRequestablePermissions(permissionStates))
     }
 
@@ -64,7 +64,7 @@ class PermissionsViewModel @Inject constructor(
 
     fun dismissPermission() {
         if (permissionQueue.isNotEmpty()) {
-            permissionQueue.removeFirst()
+            permissionQueue.ktRemoveFirst()
         }
         _permissionsUiState.update {
             (getCurrentPermission())
