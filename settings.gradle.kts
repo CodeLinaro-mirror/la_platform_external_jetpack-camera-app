@@ -26,7 +26,7 @@ dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         maven {
-            setUrl("https://androidx.dev/snapshots/builds/11790852/artifacts/repository")
+            setUrl("https://androidx.dev/snapshots/builds/11932573/artifacts/repository")
         }
         google()
         mavenCentral()
@@ -35,7 +35,7 @@ dependencyResolutionManagement {
 rootProject.name = "Jetpack Camera"
 include(":app")
 include(":feature:preview")
-include(":domain:camera")
+include(":core:camera")
 include(":feature:settings")
 include(":data:settings")
 include(":core:common")
