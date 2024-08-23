@@ -18,7 +18,6 @@ package com.google.jetpackcamera.feature.preview.ui
 import android.content.res.Configuration
 import android.os.Build
 import android.util.Log
-import android.view.Display
 import android.widget.Toast
 import androidx.camera.core.SurfaceRequest
 import androidx.camera.viewfinder.surface.ImplementationMode
@@ -51,10 +50,12 @@ import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.FlipCameraAndroid
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
+import androidx.compose.material.icons.filled.Nightlight
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.VideoStable
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.outlined.CameraAlt
+import androidx.compose.material.icons.outlined.Nightlight
 import androidx.compose.material.icons.outlined.Videocam
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -94,6 +95,7 @@ import com.google.jetpackcamera.feature.preview.R
 import com.google.jetpackcamera.feature.preview.VideoRecordingState
 import com.google.jetpackcamera.feature.preview.ui.theme.PreviewPreviewTheme
 import com.google.jetpackcamera.settings.model.AspectRatio
+import com.google.jetpackcamera.settings.model.LowLightBoost
 import com.google.jetpackcamera.settings.model.Stabilization
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -102,13 +104,18 @@ private const val TAG = "PreviewScreen"
 private const val BLINK_TIME = 100L
 
 @Composable
-fun AmplitudeVisualizer(modifier: Modifier = Modifier, size: Int = 100, audioAmplitude: Double) {
+fun AmplitudeVisualizer(
+    modifier: Modifier = Modifier,
+    size: Int = 100,
+    audioAmplitude: Double,
+    onToggleMute: () -> Unit
+) {
     // Tweak the multiplier to amplitude to adjust the visualizer sensitivity
     val animatedScaling by animateFloatAsState(
         targetValue = EaseOutExpo.transform(1 + (1.75f * audioAmplitude.toFloat())),
         label = "AudioAnimation"
     )
-    Box(modifier = modifier) {
+    Box(modifier = modifier.clickable { onToggleMute() }) {
         // animated circle
         Canvas(
             modifier = Modifier
@@ -138,7 +145,14 @@ fun AmplitudeVisualizer(modifier: Modifier = Modifier, size: Int = 100, audioAmp
         Icon(
             modifier = Modifier
                 .align(Alignment.Center)
-                .size((0.5 * size).dp),
+                .size((0.5 * size).dp)
+                .apply {
+                    if (audioAmplitude != 0.0) {
+                        testTag(AMPLITUDE_HOT_TAG)
+                    } else {
+                        testTag(AMPLITUDE_NONE_TAG)
+                    }
+                },
             tint = Color.Black,
             imageVector = if (audioAmplitude != 0.0) {
                 Icons.Filled.Mic
@@ -236,7 +250,7 @@ fun TestableSnackbar(
 @Composable
 fun PreviewDisplay(
     previewUiState: PreviewUiState.Ready,
-    onTapToFocus: (Display, Int, Int, Float, Float) -> Unit,
+    onTapToFocus: (x: Float, y: Float) -> Unit,
     onFlipCamera: () -> Unit,
     onZoomChange: (Float) -> Unit,
     onRequestWindowColorMode: (Int) -> Unit,
@@ -300,6 +314,7 @@ fun PreviewDisplay(
                     .height(height)
                     .transformable(state = transformableState)
                     .alpha(imageAlpha)
+                    .clip(RoundedCornerShape(16.dp))
             ) {
                 CameraXViewfinder(
                     modifier = Modifier.fillMaxSize(),
@@ -308,7 +323,8 @@ fun PreviewDisplay(
                         Build.VERSION.SDK_INT > 24 -> ImplementationMode.EXTERNAL
                         else -> ImplementationMode.EMBEDDED
                     },
-                    onRequestWindowColorMode = onRequestWindowColorMode
+                    onRequestWindowColorMode = onRequestWindowColorMode,
+                    onTap = { x, y -> onTapToFocus(x, y) }
                 )
             }
         }
@@ -333,6 +349,28 @@ fun StabilizationIcon(
             contentDescription = descriptionText,
             modifier = modifier
         )
+    }
+}
+
+/**
+ * LowLightBoostIcon has 3 states
+ * - disabled: hidden
+ * - enabled and inactive: outline
+ * - enabled and active: filled
+ */
+@Composable
+fun LowLightBoostIcon(lowLightBoost: LowLightBoost, modifier: Modifier = Modifier) {
+    when (lowLightBoost) {
+        LowLightBoost.ENABLED -> {
+            Icon(
+                imageVector = Icons.Outlined.Nightlight,
+                contentDescription =
+                stringResource(id = R.string.quick_settings_lowlightboost_enabled),
+                modifier = modifier.alpha(0.5f)
+            )
+        }
+        LowLightBoost.DISABLED -> {
+        }
     }
 }
 
@@ -455,9 +493,12 @@ enum class ToggleState {
 fun ToggleButton(
     leftIcon: Painter,
     rightIcon: Painter,
-    modifier: Modifier = Modifier.width(64.dp).height(32.dp),
+    modifier: Modifier = Modifier
+        .width(64.dp)
+        .height(32.dp),
     initialState: ToggleState = ToggleState.Left,
     onToggleStateChanged: (newState: ToggleState) -> Unit = {},
+    onToggleWhenDisabled: () -> Unit = {},
     enabled: Boolean = true,
     leftIconDescription: String = "leftIcon",
     rightIconDescription: String = "rightIcon",
@@ -483,18 +524,18 @@ fun ToggleButton(
         modifier = modifier
             .clip(shape = RoundedCornerShape(50))
             .then(
-                if (enabled) {
-                    Modifier.clickable {
-                        scope.launch {
+                Modifier.clickable {
+                    scope.launch {
+                        if (enabled) {
                             toggleState = when (toggleState) {
                                 ToggleState.Left -> ToggleState.Right
                                 ToggleState.Right -> ToggleState.Left
                             }
                             onToggleStateChanged(toggleState)
+                        } else {
+                            onToggleWhenDisabled()
                         }
                     }
-                } else {
-                    Modifier
                 }
             ),
         color = backgroundColor
@@ -521,9 +562,11 @@ fun ToggleButton(
                 )
             }
             Row(
-                modifier = Modifier.matchParentSize().then(
-                    if (enabled) Modifier else Modifier.alpha(0.38f)
-                ),
+                modifier = Modifier
+                    .matchParentSize()
+                    .then(
+                        if (enabled) Modifier else Modifier.alpha(0.38f)
+                    ),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
