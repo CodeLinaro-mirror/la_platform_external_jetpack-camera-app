@@ -17,10 +17,12 @@ package com.google.jetpackcamera.core.camera.test
 
 import com.google.common.truth.Truth
 import com.google.jetpackcamera.core.camera.CameraUseCase
+import com.google.jetpackcamera.settings.model.DEFAULT_CAMERA_APP_SETTINGS
 import com.google.jetpackcamera.settings.model.FlashMode
 import com.google.jetpackcamera.settings.model.LensFacing
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.consumeAsFlow
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -39,7 +41,7 @@ class FakeCameraUseCaseTest {
     private val testScope = TestScope()
     private val testDispatcher = StandardTestDispatcher(testScope.testScheduler)
 
-    private val cameraUseCase = FakeCameraUseCase(testScope)
+    private val cameraUseCase = FakeCameraUseCase()
 
     @Before
     fun setup() {
@@ -53,7 +55,10 @@ class FakeCameraUseCaseTest {
 
     @Test
     fun canInitialize() = runTest(testDispatcher) {
-        cameraUseCase.initialize(false)
+        cameraUseCase.initialize(
+            cameraAppSettings = DEFAULT_CAMERA_APP_SETTINGS,
+            useCaseMode = CameraUseCase.UseCaseMode.STANDARD
+        )
     }
 
     @Test
@@ -124,7 +129,7 @@ class FakeCameraUseCaseTest {
         initAndRunCamera()
         val events = mutableListOf<CameraUseCase.ScreenFlashEvent>()
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-            cameraUseCase.getScreenFlashEvents().toList(events)
+            cameraUseCase.getScreenFlashEvents().consumeAsFlow().toList(events)
         }
 
         // FlashMode.ON in front facing camera automatically enables screen flash
@@ -144,7 +149,10 @@ class FakeCameraUseCaseTest {
 
     private fun TestScope.initAndRunCamera() {
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-            cameraUseCase.initialize(false)
+            cameraUseCase.initialize(
+                cameraAppSettings = DEFAULT_CAMERA_APP_SETTINGS,
+                useCaseMode = CameraUseCase.UseCaseMode.STANDARD
+            )
             cameraUseCase.runCamera()
         }
     }
