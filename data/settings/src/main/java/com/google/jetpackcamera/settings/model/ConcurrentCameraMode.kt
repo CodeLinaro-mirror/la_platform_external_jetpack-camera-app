@@ -13,15 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.jetpackcamera.core.camera
+package com.google.jetpackcamera.settings.model
 
-/**
- * An event that can be sent to the camera coroutine.
- */
-sealed interface CameraEvent {
-
-    /**
-     * Represents a focus metering event, that the camera can act on.
-     */
-    data class FocusMeteringEvent(val x: Float, val y: Float) : CameraEvent
+enum class ConcurrentCameraMode {
+    OFF,
+    DUAL
 }
