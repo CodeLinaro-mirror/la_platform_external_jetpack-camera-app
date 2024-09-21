@@ -51,6 +51,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.unit.dp
+import androidx.core.content.IntentCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -70,6 +71,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 
 private const val TAG = "MainActivity"
+private const val KEY_DEBUG_MODE = "KEY_DEBUG_MODE"
 
 /**
  * Activity for the JetpackCameraApp.
@@ -136,6 +138,7 @@ class MainActivity : Hilt_MainActivity() {
                         ) {
                             JcaApp(
                                 previewMode = getPreviewMode(),
+                                isDebugMode = isDebugMode,
                                 openAppSettings = ::openAppSettings,
                                 onRequestWindowColorMode = { colorMode ->
                                     // Window color mode APIs require API level 26+
@@ -159,39 +162,60 @@ class MainActivity : Hilt_MainActivity() {
         }
     }
 
-    private fun getPreviewMode(): PreviewMode {
-        if (intent == null || MediaStore.ACTION_IMAGE_CAPTURE != intent.action) {
-            return PreviewMode.StandardMode { event ->
-                if (event is PreviewViewModel.ImageCaptureEvent.ImageSaved) {
-                    val intent = Intent(Camera.ACTION_NEW_PICTURE)
-                    intent.setData(event.savedUri)
-                    sendBroadcast(intent)
-                }
-            }
-        } else {
-            var uri = if (intent.extras == null ||
-                !intent.extras!!.containsKey(MediaStore.EXTRA_OUTPUT)
-            ) {
-                null
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                intent.extras!!.getParcelable(
-                    MediaStore.EXTRA_OUTPUT,
-                    Uri::class.java
-                )
-            } else {
-                @Suppress("DEPRECATION")
-                intent.extras!!.getParcelable(MediaStore.EXTRA_OUTPUT)
-            }
-            if (uri == null && intent.clipData != null && intent.clipData!!.itemCount != 0) {
-                uri = intent.clipData!!.getItemAt(0).uri
-            }
-            return PreviewMode.ExternalImageCaptureMode(uri) { event ->
-                if (event is PreviewViewModel.ImageCaptureEvent.ImageSaved) {
-                    setResult(RESULT_OK)
-                    finish()
-                }
+    private val isDebugMode: Boolean
+        get() = intent?.getBooleanExtra(KEY_DEBUG_MODE, false) ?: false
+
+    private fun getStandardMode(): PreviewMode.StandardMode {
+        return PreviewMode.StandardMode { event ->
+            if (event is PreviewViewModel.ImageCaptureEvent.ImageSaved) {
+                val intent = Intent(Camera.ACTION_NEW_PICTURE)
+                intent.setData(event.savedUri)
+                sendBroadcast(intent)
             }
         }
+    }
+
+    private fun getExternalCaptureUri(): Uri? {
+        return IntentCompat.getParcelableExtra(
+            intent,
+            MediaStore.EXTRA_OUTPUT,
+            Uri::class.java
+        ) ?: intent?.clipData?.getItemAt(0)?.uri
+    }
+
+    private fun getPreviewMode(): PreviewMode {
+        return intent?.action?.let { action ->
+            when (action) {
+                MediaStore.ACTION_IMAGE_CAPTURE ->
+                    PreviewMode.ExternalImageCaptureMode(getExternalCaptureUri()) { event ->
+                        Log.d(TAG, "onImageCapture, event: $event")
+                        if (event is PreviewViewModel.ImageCaptureEvent.ImageSaved) {
+                            val resultIntent = Intent()
+                            resultIntent.putExtra(MediaStore.EXTRA_OUTPUT, event.savedUri)
+                            setResult(RESULT_OK, resultIntent)
+                            Log.d(TAG, "onImageCapture, finish()")
+                            finish()
+                        }
+                    }
+
+                MediaStore.ACTION_VIDEO_CAPTURE ->
+                    PreviewMode.ExternalVideoCaptureMode(getExternalCaptureUri()) { event ->
+                        Log.d(TAG, "onVideoCapture, event: $event")
+                        if (event is PreviewViewModel.VideoCaptureEvent.VideoSaved) {
+                            val resultIntent = Intent()
+                            resultIntent.putExtra(MediaStore.EXTRA_OUTPUT, event.savedUri)
+                            setResult(RESULT_OK, resultIntent)
+                            Log.d(TAG, "onVideoCapture, finish()")
+                            finish()
+                        }
+                    }
+
+                else -> {
+                    Log.w(TAG, "Ignoring external intent with unknown action.")
+                    getStandardMode()
+                }
+            }
+        } ?: getStandardMode()
     }
 }
 
