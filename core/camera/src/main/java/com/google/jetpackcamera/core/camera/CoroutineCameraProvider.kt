@@ -15,14 +15,19 @@
  */
 package com.google.jetpackcamera.core.camera
 
+import android.annotation.SuppressLint
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.CompositionSettings
+import androidx.camera.core.ConcurrentCamera
+import androidx.camera.core.ConcurrentCamera.SingleCameraConfig
 import androidx.camera.core.UseCaseGroup
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
 import kotlin.coroutines.CoroutineContext
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 
@@ -36,10 +41,23 @@ import kotlinx.coroutines.coroutineScope
 suspend fun <R> ProcessCameraProvider.runWith(
     cameraSelector: CameraSelector,
     useCases: UseCaseGroup,
-    block: suspend (Camera) -> R
+    block: suspend CoroutineScope.(Camera) -> R
 ): R = coroutineScope {
     val scopedLifecycle = CoroutineLifecycleOwner(coroutineContext)
     block(this@runWith.bindToLifecycle(scopedLifecycle, cameraSelector, useCases))
+}
+
+@SuppressLint("RestrictedApi")
+suspend fun <R> ProcessCameraProvider.runWithConcurrent(
+    cameraConfigs: List<Pair<CameraSelector, CompositionSettings>>,
+    useCaseGroup: UseCaseGroup,
+    block: suspend CoroutineScope.(ConcurrentCamera) -> R
+): R = coroutineScope {
+    val scopedLifecycle = CoroutineLifecycleOwner(coroutineContext)
+    val singleCameraConfigs = cameraConfigs.map {
+        SingleCameraConfig(it.first, useCaseGroup, it.second, scopedLifecycle)
+    }
+    block(this@runWithConcurrent.bindToLifecycle(singleCameraConfigs))
 }
 
 /**
