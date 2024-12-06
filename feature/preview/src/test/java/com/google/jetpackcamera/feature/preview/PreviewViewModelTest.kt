@@ -22,6 +22,7 @@ import com.google.jetpackcamera.settings.SettableConstraintsRepositoryImpl
 import com.google.jetpackcamera.settings.model.FlashMode
 import com.google.jetpackcamera.settings.model.LensFacing
 import com.google.jetpackcamera.settings.model.TYPICAL_SYSTEM_CONSTRAINTS
+import com.google.jetpackcamera.settings.test.FakeSettingsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -47,8 +48,10 @@ class PreviewViewModelTest {
         Dispatchers.setMain(StandardTestDispatcher())
         previewViewModel = PreviewViewModel(
             PreviewMode.StandardMode {},
-            cameraUseCase,
-            constraintsRepository
+            false,
+            cameraUseCase = cameraUseCase,
+            constraintsRepository = constraintsRepository,
+            settingsRepository = FakeSettingsRepository
         )
         advanceUntilIdle()
     }
@@ -87,7 +90,7 @@ class PreviewViewModelTest {
     @Test
     fun startVideoRecording() = runTest(StandardTestDispatcher()) {
         previewViewModel.startCameraUntilRunning()
-        previewViewModel.startVideoRecording()
+        previewViewModel.startVideoRecording(null, false) {}
         advanceUntilIdle()
         assertThat(cameraUseCase.recordingInProgress).isTrue()
     }
@@ -95,7 +98,7 @@ class PreviewViewModelTest {
     @Test
     fun stopVideoRecording() = runTest(StandardTestDispatcher()) {
         previewViewModel.startCameraUntilRunning()
-        previewViewModel.startVideoRecording()
+        previewViewModel.startVideoRecording(null, false) {}
         advanceUntilIdle()
         previewViewModel.stopVideoRecording()
         assertThat(cameraUseCase.recordingInProgress).isFalse()
