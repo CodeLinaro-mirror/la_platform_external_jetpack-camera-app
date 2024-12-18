@@ -17,6 +17,7 @@ package com.google.jetpackcamera.settings.model
 
 data class SystemConstraints(
     val availableLenses: List<LensFacing>,
+    val concurrentCamerasSupported: Boolean,
     val perLensConstraints: Map<LensFacing, CameraConstraints>
 )
 
@@ -24,7 +25,8 @@ data class CameraConstraints(
     val supportedStabilizationModes: Set<SupportedStabilizationMode>,
     val supportedFixedFrameRates: Set<Int>,
     val supportedDynamicRanges: Set<DynamicRange>,
-    val supportedImageFormatsMap: Map<CaptureMode, Set<ImageOutputFormat>>
+    val supportedImageFormatsMap: Map<CaptureMode, Set<ImageOutputFormat>>,
+    val hasFlashUnit: Boolean
 )
 
 /**
@@ -33,6 +35,7 @@ data class CameraConstraints(
 val TYPICAL_SYSTEM_CONSTRAINTS =
     SystemConstraints(
         availableLenses = listOf(LensFacing.FRONT, LensFacing.BACK),
+        concurrentCamerasSupported = false,
         perLensConstraints = buildMap {
             for (lensFacing in listOf(LensFacing.FRONT, LensFacing.BACK)) {
                 put(
@@ -44,7 +47,8 @@ val TYPICAL_SYSTEM_CONSTRAINTS =
                         supportedImageFormatsMap = mapOf(
                             Pair(CaptureMode.SINGLE_STREAM, setOf(ImageOutputFormat.JPEG)),
                             Pair(CaptureMode.MULTI_STREAM, setOf(ImageOutputFormat.JPEG))
-                        )
+                        ),
+                        hasFlashUnit = lensFacing == LensFacing.BACK
                     )
                 )
             }
