@@ -5,3 +5,4 @@ trevormcguire@google.com
 yasith@google.com
 davidjia@google.com
 kcrevecoeur@google.com
+include platform/system/core:/janitors/OWNERS #{LAST_RESORT_SUGGESTION}
