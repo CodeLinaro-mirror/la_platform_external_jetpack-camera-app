@@ -23,12 +23,12 @@ android_library {
         "kotlinx_coroutines_guava",
         "androidx.datastore_datastore",
         "libprotobuf-java-lite",
+        "androidx.camera_camera-compose",
         "androidx.camera_camera-core",
         "androidx.camera_camera-viewfinder",
         "jetpack-camera-app_data_settings",
         "jetpack-camera-app_core_camera",
         "jetpack-camera-app_core_common",
-        "androidx.camera_camera-viewfinder-compose",
         "androidx.compose.ui_ui-tooling",
 
     ],

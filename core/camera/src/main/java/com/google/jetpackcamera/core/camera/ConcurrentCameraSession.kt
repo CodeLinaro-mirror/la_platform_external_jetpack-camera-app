@@ -22,7 +22,8 @@ import androidx.camera.core.TorchState
 import androidx.lifecycle.asFlow
 import com.google.jetpackcamera.settings.model.DynamicRange
 import com.google.jetpackcamera.settings.model.ImageOutputFormat
-import com.google.jetpackcamera.settings.model.Stabilization
+import com.google.jetpackcamera.settings.model.StabilizationMode
+import com.google.jetpackcamera.settings.model.VideoQuality
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.filterNotNull
@@ -50,16 +51,31 @@ internal suspend fun runConcurrentCameraSession(
         .filterNotNull()
         .first()
 
+    val videoCapture = if (useCaseMode != CameraUseCase.UseCaseMode.IMAGE_ONLY) {
+        createVideoUseCase(
+            cameraProvider.getCameraInfo(
+                initialTransientSettings.primaryLensFacing.toCameraSelector()
+            ),
+            sessionSettings.aspectRatio,
+            TARGET_FPS_AUTO,
+            StabilizationMode.OFF,
+            DynamicRange.SDR,
+            VideoQuality.UNSPECIFIED,
+            backgroundDispatcher
+        )
+    } else {
+        null
+    }
+
     val useCaseGroup = createUseCaseGroup(
         cameraInfo = sessionSettings.primaryCameraInfo,
         initialTransientSettings = initialTransientSettings,
-        stabilizePreviewMode = Stabilization.OFF,
-        stabilizeVideoMode = Stabilization.OFF,
+        stabilizationMode = StabilizationMode.OFF,
         aspectRatio = sessionSettings.aspectRatio,
-        targetFrameRate = TARGET_FPS_AUTO,
         dynamicRange = DynamicRange.SDR,
         imageFormat = ImageOutputFormat.JPEG,
-        useCaseMode = useCaseMode
+        useCaseMode = useCaseMode,
+        videoCaptureUseCase = videoCapture
     )
 
     val cameraConfigs = listOf(
@@ -93,7 +109,6 @@ internal suspend fun runConcurrentCameraSession(
 
         launch {
             processVideoControlEvents(
-                primaryCamera,
                 useCaseGroup.getVideoCapture(),
                 captureTypeSuffix = "DualCam"
             )
