@@ -19,7 +19,9 @@ import android.Manifest
 import android.content.ContentValues
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.Rect
 import android.hardware.camera2.CameraCaptureSession
+import android.hardware.camera2.CameraMetadata
 import android.hardware.camera2.CaptureRequest
 import android.hardware.camera2.CaptureResult
 import android.hardware.camera2.TotalCaptureResult
@@ -29,9 +31,12 @@ import android.os.SystemClock
 import android.provider.MediaStore
 import android.util.Log
 import android.util.Range
+import android.util.Size
 import androidx.annotation.OptIn
+import androidx.camera.camera2.interop.Camera2CameraControl
 import androidx.camera.camera2.interop.Camera2CameraInfo
 import androidx.camera.camera2.interop.Camera2Interop
+import androidx.camera.camera2.interop.CaptureRequestOptions
 import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraControl
@@ -47,48 +52,66 @@ import androidx.camera.core.UseCaseGroup
 import androidx.camera.core.ViewPort
 import androidx.camera.core.resolutionselector.AspectRatioStrategy
 import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.video.FallbackStrategy
+import androidx.camera.video.FileDescriptorOutputOptions
 import androidx.camera.video.FileOutputOptions
 import androidx.camera.video.MediaStoreOutputOptions
+import androidx.camera.video.PendingRecording
+import androidx.camera.video.QualitySelector
 import androidx.camera.video.Recorder
 import androidx.camera.video.Recording
 import androidx.camera.video.VideoCapture
 import androidx.camera.video.VideoRecordEvent
+import androidx.camera.video.VideoRecordEvent.Finalize.ERROR_DURATION_LIMIT_REACHED
 import androidx.camera.video.VideoRecordEvent.Finalize.ERROR_NONE
-import androidx.concurrent.futures.await
 import androidx.core.content.ContextCompat
 import androidx.core.content.ContextCompat.checkSelfPermission
 import androidx.lifecycle.asFlow
 import com.google.jetpackcamera.core.camera.effects.SingleSurfaceForcingEffect
 import com.google.jetpackcamera.settings.model.AspectRatio
-import com.google.jetpackcamera.settings.model.CaptureMode
 import com.google.jetpackcamera.settings.model.DeviceRotation
 import com.google.jetpackcamera.settings.model.DynamicRange
 import com.google.jetpackcamera.settings.model.FlashMode
 import com.google.jetpackcamera.settings.model.ImageOutputFormat
 import com.google.jetpackcamera.settings.model.LensFacing
-import com.google.jetpackcamera.settings.model.Stabilization
+import com.google.jetpackcamera.settings.model.LowLightBoostState
+import com.google.jetpackcamera.settings.model.StabilizationMode
+import com.google.jetpackcamera.settings.model.StreamConfig
+import com.google.jetpackcamera.settings.model.VideoQuality
+import com.google.jetpackcamera.settings.model.VideoQuality.FHD
+import com.google.jetpackcamera.settings.model.VideoQuality.HD
+import com.google.jetpackcamera.settings.model.VideoQuality.SD
+import com.google.jetpackcamera.settings.model.VideoQuality.UHD
 import java.io.File
 import java.util.Date
 import java.util.concurrent.Executor
 import kotlin.coroutines.ContinuationInterceptor
 import kotlin.math.abs
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.asExecutor
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 private const val TAG = "CameraSession"
+private val QUALITY_RANGE_MAP = mapOf(
+    UHD to Range.create(2160, 4319),
+    FHD to Range.create(1080, 1439),
+    HD to Range.create(720, 1079),
+    SD to Range.create(241, 719)
+)
 
 context(CameraSessionContext)
 internal suspend fun runSingleCameraSession(
@@ -97,68 +120,115 @@ internal suspend fun runSingleCameraSession(
     // TODO(tm): ImageCapture should go through an event channel like VideoCapture
     onImageCaptureCreated: (ImageCapture) -> Unit = {}
 ) = coroutineScope {
-    val lensFacing = sessionSettings.cameraInfo.appLensFacing
-    Log.d(TAG, "Starting new single camera session for $lensFacing")
+    Log.d(TAG, "Starting new single camera session")
 
-    val initialTransientSettings = transientSettings
-        .filterNotNull()
-        .first()
+    val initialCameraSelector = transientSettings.filterNotNull().first()
+        .primaryLensFacing.toCameraSelector()
 
-    val useCaseGroup = createUseCaseGroup(
-        cameraInfo = sessionSettings.cameraInfo,
-        initialTransientSettings = initialTransientSettings,
-        stabilizePreviewMode = sessionSettings.stabilizePreviewMode,
-        stabilizeVideoMode = sessionSettings.stabilizeVideoMode,
-        aspectRatio = sessionSettings.aspectRatio,
-        targetFrameRate = sessionSettings.targetFrameRate,
-        dynamicRange = sessionSettings.dynamicRange,
-        imageFormat = sessionSettings.imageFormat,
-        useCaseMode = useCaseMode,
-        effect = when (sessionSettings.captureMode) {
-            CaptureMode.SINGLE_STREAM -> SingleSurfaceForcingEffect(this@coroutineScope)
-            CaptureMode.MULTI_STREAM -> null
+    val videoCaptureUseCase = when (useCaseMode) {
+        CameraUseCase.UseCaseMode.STANDARD, CameraUseCase.UseCaseMode.VIDEO_ONLY ->
+            createVideoUseCase(
+                cameraProvider.getCameraInfo(initialCameraSelector),
+                sessionSettings.aspectRatio,
+                sessionSettings.targetFrameRate,
+                sessionSettings.stabilizationMode,
+                sessionSettings.dynamicRange,
+                sessionSettings.videoQuality,
+                backgroundDispatcher
+            )
+
+        else -> {
+            null
         }
-    ).apply {
-        getImageCapture()?.let(onImageCaptureCreated)
     }
 
-    cameraProvider.runWith(sessionSettings.cameraInfo.cameraSelector, useCaseGroup) { camera ->
-        Log.d(TAG, "Camera session started")
+    launch {
+        processVideoControlEvents(
+            videoCaptureUseCase,
+            captureTypeSuffix = when (sessionSettings.streamConfig) {
+                StreamConfig.MULTI_STREAM -> "MultiStream"
+                StreamConfig.SINGLE_STREAM -> "SingleStream"
+            }
+        )
+    }
 
-        launch {
-            processFocusMeteringEvents(camera.cameraControl)
+    transientSettings.filterNotNull().distinctUntilChanged { old, new ->
+        old.primaryLensFacing == new.primaryLensFacing
+    }.collectLatest { currentTransientSettings ->
+        cameraProvider.unbindAll()
+        val currentCameraSelector = currentTransientSettings.primaryLensFacing.toCameraSelector()
+        val useCaseGroup = createUseCaseGroup(
+            cameraInfo = cameraProvider.getCameraInfo(currentCameraSelector),
+            videoCaptureUseCase = videoCaptureUseCase,
+            initialTransientSettings = currentTransientSettings,
+            stabilizationMode = sessionSettings.stabilizationMode,
+            aspectRatio = sessionSettings.aspectRatio,
+            dynamicRange = sessionSettings.dynamicRange,
+            imageFormat = sessionSettings.imageFormat,
+            useCaseMode = useCaseMode,
+            effect = when (sessionSettings.streamConfig) {
+                StreamConfig.SINGLE_STREAM -> SingleSurfaceForcingEffect(this@coroutineScope)
+                StreamConfig.MULTI_STREAM -> null
+            }
+        ).apply {
+            getImageCapture()?.let(onImageCaptureCreated)
         }
 
-        launch {
-            processVideoControlEvents(
-                camera,
-                useCaseGroup.getVideoCapture(),
-                captureTypeSuffix = when (sessionSettings.captureMode) {
-                    CaptureMode.MULTI_STREAM -> "MultiStream"
-                    CaptureMode.SINGLE_STREAM -> "SingleStream"
-                }
-            )
-        }
+        cameraProvider.runWith(
+            currentCameraSelector,
+            useCaseGroup
+        ) { camera ->
+            Log.d(TAG, "Camera session started")
 
-        launch {
-            camera.cameraInfo.torchState.asFlow().collectLatest { torchState ->
-                currentCameraState.update { old ->
-                    old.copy(torchEnabled = torchState == TorchState.ON)
+            launch {
+                processFocusMeteringEvents(camera.cameraControl)
+            }
+
+            launch {
+                camera.cameraInfo.torchState.asFlow().collectLatest { torchState ->
+                    currentCameraState.update { old ->
+                        old.copy(torchEnabled = torchState == TorchState.ON)
+                    }
                 }
             }
-        }
 
-        applyDeviceRotation(initialTransientSettings.deviceRotation, useCaseGroup)
-        processTransientSettingEvents(
-            camera,
-            useCaseGroup,
-            initialTransientSettings,
-            transientSettings
-        )
+            if (videoCaptureUseCase != null) {
+                val videoQuality = getVideoQualityFromResolution(
+                    videoCaptureUseCase.resolutionInfo?.resolution
+                )
+                if (videoQuality != sessionSettings.videoQuality) {
+                    Log.e(
+                        TAG,
+                        "Failed to select video quality: $sessionSettings.videoQuality. " +
+                            "Fallback: $videoQuality"
+                    )
+                }
+                launch {
+                    currentCameraState.update { old ->
+                        old.copy(
+                            videoQualityInfo = VideoQualityInfo(
+                                videoQuality,
+                                getWidthFromCropRect(videoCaptureUseCase.resolutionInfo?.cropRect),
+                                getHeightFromCropRect(videoCaptureUseCase.resolutionInfo?.cropRect)
+                            )
+                        )
+                    }
+                }
+            }
+
+            applyDeviceRotation(currentTransientSettings.deviceRotation, useCaseGroup)
+            processTransientSettingEvents(
+                camera,
+                useCaseGroup,
+                currentTransientSettings,
+                transientSettings
+            )
+        }
     }
 }
 
 context(CameraSessionContext)
+@OptIn(ExperimentalCamera2Interop::class)
 internal suspend fun processTransientSettingEvents(
     camera: Camera,
     useCaseGroup: UseCaseGroup,
@@ -166,8 +236,24 @@ internal suspend fun processTransientSettingEvents(
     transientSettings: StateFlow<TransientSessionSettings?>
 ) {
     var prevTransientSettings = initialTransientSettings
-    transientSettings.filterNotNull().collectLatest { newTransientSettings ->
-        // Apply camera control settings
+    val isFrontFacing = camera.cameraInfo.appLensFacing == LensFacing.FRONT
+    var torchOn = false
+    fun setTorch(newTorchOn: Boolean) {
+        if (newTorchOn != torchOn) {
+            camera.cameraControl.enableTorch(newTorchOn)
+            torchOn = newTorchOn
+        }
+    }
+    combine(
+        transientSettings.filterNotNull(),
+        currentCameraState.asStateFlow()
+    ) { newTransientSettings, cameraState ->
+        return@combine Pair(newTransientSettings, cameraState)
+    }.collectLatest {
+        val newTransientSettings = it.first
+        val cameraState = it.second
+
+        // Apply camera zoom
         if (prevTransientSettings.zoomScale != newTransientSettings.zoomScale) {
             camera.cameraInfo.zoomState.value?.let { zoomState ->
                 val finalScale =
@@ -182,6 +268,18 @@ internal suspend fun processTransientSettingEvents(
             }
         }
 
+        // todo(): How should we handle torch on Auto FlashMode?
+        // enable torch only while recording is in progress
+        if ((cameraState.videoRecordingState !is VideoRecordingState.Inactive) &&
+            newTransientSettings.flashMode == FlashMode.ON &&
+            !isFrontFacing
+        ) {
+            setTorch(true)
+        } else {
+            setTorch(false)
+        }
+
+        // apply camera torch mode to image capture
         useCaseGroup.getImageCapture()?.let { imageCapture ->
             if (prevTransientSettings.flashMode != newTransientSettings.flashMode) {
                 setFlashModeInternal(
@@ -189,6 +287,28 @@ internal suspend fun processTransientSettingEvents(
                     flashMode = newTransientSettings.flashMode,
                     isFrontFacing = camera.cameraInfo.appLensFacing == LensFacing.FRONT
                 )
+            }
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM &&
+            prevTransientSettings.flashMode != newTransientSettings.flashMode
+        ) {
+            when (newTransientSettings.flashMode) {
+                FlashMode.LOW_LIGHT_BOOST -> {
+                    val captureRequestOptions = CaptureRequestOptions.Builder()
+                        .setCaptureRequestOption(
+                            CaptureRequest.CONTROL_AE_MODE,
+                            CameraMetadata.CONTROL_AE_MODE_ON_LOW_LIGHT_BOOST_BRIGHTNESS_PRIORITY
+                        )
+                        .build()
+
+                    Camera2CameraControl.from(camera.cameraControl)
+                        .addCaptureRequestOptions(captureRequestOptions)
+                }
+                else -> {
+                    Camera2CameraControl.from(camera.cameraControl)
+                        .setCaptureRequestOptions(CaptureRequestOptions.Builder().build())
+                }
             }
         }
 
@@ -235,10 +355,9 @@ context(CameraSessionContext)
 internal fun createUseCaseGroup(
     cameraInfo: CameraInfo,
     initialTransientSettings: TransientSessionSettings,
-    stabilizePreviewMode: Stabilization,
-    stabilizeVideoMode: Stabilization,
+    stabilizationMode: StabilizationMode,
     aspectRatio: AspectRatio,
-    targetFrameRate: Int,
+    videoCaptureUseCase: VideoCapture<Recorder>?,
     dynamicRange: DynamicRange,
     imageFormat: ImageOutputFormat,
     useCaseMode: CameraUseCase.UseCaseMode,
@@ -248,22 +367,10 @@ internal fun createUseCaseGroup(
         createPreviewUseCase(
             cameraInfo,
             aspectRatio,
-            stabilizePreviewMode
+            stabilizationMode
         )
     val imageCaptureUseCase = if (useCaseMode != CameraUseCase.UseCaseMode.VIDEO_ONLY) {
         createImageUseCase(cameraInfo, aspectRatio, dynamicRange, imageFormat)
-    } else {
-        null
-    }
-    val videoCaptureUseCase = if (useCaseMode != CameraUseCase.UseCaseMode.IMAGE_ONLY) {
-        createVideoUseCase(
-            cameraInfo,
-            aspectRatio,
-            targetFrameRate,
-            stabilizeVideoMode,
-            dynamicRange,
-            backgroundDispatcher
-        )
     } else {
         null
     }
@@ -308,6 +415,28 @@ internal fun createUseCaseGroup(
     }.build()
 }
 
+private fun getVideoQualityFromResolution(resolution: Size?): VideoQuality {
+    return resolution?.let { res ->
+        QUALITY_RANGE_MAP.firstNotNullOfOrNull {
+            if (it.value.contains(res.height)) it.key else null
+        }
+    } ?: VideoQuality.UNSPECIFIED
+}
+
+private fun getWidthFromCropRect(cropRect: Rect?): Int {
+    if (cropRect == null) {
+        return 0
+    }
+    return abs(cropRect.top - cropRect.bottom)
+}
+
+private fun getHeightFromCropRect(cropRect: Rect?): Int {
+    if (cropRect == null) {
+        return 0
+    }
+    return abs(cropRect.left - cropRect.right)
+}
+
 private fun createImageUseCase(
     cameraInfo: CameraInfo,
     aspectRatio: AspectRatio,
@@ -325,12 +454,13 @@ private fun createImageUseCase(
     return builder.build()
 }
 
-private fun createVideoUseCase(
+internal fun createVideoUseCase(
     cameraInfo: CameraInfo,
     aspectRatio: AspectRatio,
     targetFrameRate: Int,
-    stabilizeVideoMode: Stabilization,
+    stabilizationMode: StabilizationMode,
     dynamicRange: DynamicRange,
+    videoQuality: VideoQuality,
     backgroundDispatcher: CoroutineDispatcher
 ): VideoCapture<Recorder> {
     val sensorLandscapeRatio = cameraInfo.sensorLandscapeRatio
@@ -338,10 +468,22 @@ private fun createVideoUseCase(
         .setAspectRatio(
             getAspectRatioForUseCase(sensorLandscapeRatio, aspectRatio)
         )
-        .setExecutor(backgroundDispatcher.asExecutor()).build()
+        .setExecutor(backgroundDispatcher.asExecutor())
+        .apply {
+            videoQuality.toQuality()?.let { quality ->
+                // No fallback strategy is used. The app will crash if the quality is unsupported
+                setQualitySelector(
+                    QualitySelector.from(
+                        quality,
+                        FallbackStrategy.lowerQualityOrHigherThan(quality)
+                    )
+                )
+            }
+        }.build()
+
     return VideoCapture.Builder(recorder).apply {
         // set video stabilization
-        if (stabilizeVideoMode == Stabilization.ON) {
+        if (stabilizationMode == StabilizationMode.HIGH_QUALITY) {
             setVideoStabilizationEnabled(true)
         }
         // set target fps
@@ -353,8 +495,8 @@ private fun createVideoUseCase(
     }.build()
 }
 
-private fun getAspectRatioForUseCase(sensorLandscapeRatio: Float, aspectRatio: AspectRatio): Int {
-    return when (aspectRatio) {
+private fun getAspectRatioForUseCase(sensorLandscapeRatio: Float, aspectRatio: AspectRatio): Int =
+    when (aspectRatio) {
         AspectRatio.THREE_FOUR -> androidx.camera.core.AspectRatio.RATIO_4_3
         AspectRatio.NINE_SIXTEEN -> androidx.camera.core.AspectRatio.RATIO_16_9
         else -> {
@@ -369,19 +511,25 @@ private fun getAspectRatioForUseCase(sensorLandscapeRatio: Float, aspectRatio: A
             }
         }
     }
-}
 
 context(CameraSessionContext)
 private fun createPreviewUseCase(
     cameraInfo: CameraInfo,
     aspectRatio: AspectRatio,
-    stabilizePreviewMode: Stabilization
+    stabilizationMode: StabilizationMode
 ): Preview = Preview.Builder().apply {
     updateCameraStateWithCaptureResults(targetCameraInfo = cameraInfo)
 
     // set preview stabilization
-    if (stabilizePreviewMode == Stabilization.ON) {
-        setPreviewStabilizationEnabled(true)
+    when (stabilizationMode) {
+        StabilizationMode.ON -> setPreviewStabilizationEnabled(true)
+        StabilizationMode.OPTICAL -> setOpticalStabilizationModeEnabled(true)
+        StabilizationMode.OFF -> setOpticalStabilizationModeEnabled(false)
+        StabilizationMode.HIGH_QUALITY -> {} // No-op. Handled by VideoCapture use case.
+        else -> throw UnsupportedOperationException(
+            "Unexpected stabilization mode: $stabilizationMode. Stabilization mode should always " +
+                "an explicit mode, such as ON, OPTICAL, OFF or HIGH_QUALITY"
+        )
     }
 
     setResolutionSelector(
@@ -393,6 +541,20 @@ private fun createPreviewUseCase(
             surfaceRequests.update { surfaceRequest }
         }
     }
+
+@OptIn(ExperimentalCamera2Interop::class)
+private fun Preview.Builder.setOpticalStabilizationModeEnabled(enabled: Boolean): Preview.Builder {
+    Camera2Interop.Extender(this)
+        .setCaptureRequestOption(
+            CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE,
+            if (enabled) {
+                CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_ON
+            } else {
+                CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_OFF
+            }
+        )
+    return this
+}
 
 private fun getResolutionSelector(
     sensorLandscapeRatio: Float,
@@ -463,37 +625,56 @@ private fun setFlashModeInternal(
         } else {
             ImageCapture.FLASH_MODE_AUTO // 0
         }
+
+        FlashMode.LOW_LIGHT_BOOST -> ImageCapture.FLASH_MODE_OFF // 2
     }
     Log.d(TAG, "Set flash mode to: ${imageCapture.flashMode}")
 }
 
-private suspend fun startVideoRecordingInternal(
-    initialMuted: Boolean,
-    videoCaptureUseCase: VideoCapture<Recorder>,
-    captureTypeSuffix: String,
+private fun getPendingRecording(
     context: Context,
+    videoCaptureUseCase: VideoCapture<Recorder>,
+    maxDurationMillis: Long,
+    captureTypeSuffix: String,
     videoCaptureUri: Uri?,
     shouldUseUri: Boolean,
     onVideoRecord: (CameraUseCase.OnVideoRecordEvent) -> Unit
-): Recording {
-    Log.d(TAG, "recordVideo")
-    // todo(b/336886716): default setting to enable or disable audio when permission is granted
+): PendingRecording? {
+    Log.d(TAG, "getPendingRecording")
 
-    // ok. there is a difference between MUTING and ENABLING audio
-    // audio must be enabled in order to be muted
-    // if the video recording isnt started with audio enabled, you will not be able to unmute it
-    // the toggle should only affect whether or not the audio is muted.
-    // the permission will determine whether or not the audio is enabled.
-    val audioEnabled = checkSelfPermission(
-        context,
-        Manifest.permission.RECORD_AUDIO
-    ) == PackageManager.PERMISSION_GRANTED
-
-    val pendingRecord = if (shouldUseUri) {
-        val fileOutputOptions = FileOutputOptions.Builder(
-            File(videoCaptureUri!!.path!!)
-        ).build()
-        videoCaptureUseCase.output.prepareRecording(context, fileOutputOptions)
+    return if (shouldUseUri) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                videoCaptureUseCase.output.prepareRecording(
+                    context,
+                    FileDescriptorOutputOptions.Builder(
+                        context.applicationContext.contentResolver.openFileDescriptor(
+                            videoCaptureUri!!,
+                            "rw"
+                        )!!
+                    ).build()
+                )
+            } catch (e: Exception) {
+                onVideoRecord(
+                    CameraUseCase.OnVideoRecordEvent.OnVideoRecordError(e)
+                )
+                null
+            }
+        } else {
+            if (videoCaptureUri?.scheme == "file") {
+                val fileOutputOptions = FileOutputOptions.Builder(
+                    File(videoCaptureUri.path!!)
+                ).build()
+                videoCaptureUseCase.output.prepareRecording(context, fileOutputOptions)
+            } else {
+                onVideoRecord(
+                    CameraUseCase.OnVideoRecordEvent.OnVideoRecordError(
+                        RuntimeException("Uri scheme not supported.")
+                    )
+                )
+                null
+            }
+        }
     } else {
         val name = "JCA-recording-${Date()}-$captureTypeSuffix.mp4"
         val contentValues =
@@ -505,15 +686,46 @@ private suspend fun startVideoRecordingInternal(
                 context.contentResolver,
                 MediaStore.Video.Media.EXTERNAL_CONTENT_URI
             )
+                .setDurationLimitMillis(maxDurationMillis)
                 .setContentValues(contentValues)
                 .build()
         videoCaptureUseCase.output.prepareRecording(context, mediaStoreOutput)
     }
+}
+
+context(CameraSessionContext)
+private suspend fun startVideoRecordingInternal(
+    isInitialAudioEnabled: Boolean,
+    context: Context,
+    pendingRecord: PendingRecording,
+    maxDurationMillis: Long,
+    onVideoRecord: (CameraUseCase.OnVideoRecordEvent) -> Unit
+): Recording {
+    Log.d(TAG, "recordVideo")
+    // todo(b/336886716): default setting to enable or disable audio when permission is granted
+    // set the camerastate to starting
+    currentCameraState.update { old ->
+        old.copy(videoRecordingState = VideoRecordingState.Starting)
+    }
+
+    // ok. there is a difference between MUTING and ENABLING audio
+    // audio must be enabled in order to be muted
+    // if the video recording isn't started with audio enabled, you will not be able to un-mute it
+    // the toggle should only affect whether or not the audio is muted.
+    // the permission will determine whether or not the audio is enabled.
+    val isAudioGranted = checkSelfPermission(
+        context,
+        Manifest.permission.RECORD_AUDIO
+    ) == PackageManager.PERMISSION_GRANTED
+
     pendingRecord.apply {
-        if (audioEnabled) {
-            withAudioEnabled()
+        if (isAudioGranted) {
+            Log.d(TAG, "INITIAL AUDIO $isInitialAudioEnabled")
+            withAudioEnabled(isInitialAudioEnabled)
         }
     }
+        .asPersistentRecording()
+
     val callbackExecutor: Executor =
         (
             currentCoroutineContext()[ContinuationInterceptor] as?
@@ -522,91 +734,198 @@ private suspend fun startVideoRecordingInternal(
     return pendingRecord.start(callbackExecutor) { onVideoRecordEvent ->
         Log.d(TAG, onVideoRecordEvent.toString())
         when (onVideoRecordEvent) {
+            is VideoRecordEvent.Start -> {
+                currentCameraState.update { old ->
+                    old.copy(
+                        videoRecordingState = VideoRecordingState.Active.Recording(
+                            audioAmplitude = onVideoRecordEvent.recordingStats.audioStats
+                                .audioAmplitude,
+                            maxDurationMillis = maxDurationMillis,
+                            elapsedTimeNanos = onVideoRecordEvent.recordingStats
+                                .recordedDurationNanos
+                        )
+                    )
+                }
+            }
+
+            is VideoRecordEvent.Pause -> {
+                currentCameraState.update { old ->
+                    old.copy(
+                        videoRecordingState = VideoRecordingState.Active.Paused(
+                            audioAmplitude = onVideoRecordEvent.recordingStats.audioStats
+                                .audioAmplitude,
+                            maxDurationMillis = maxDurationMillis,
+                            elapsedTimeNanos = onVideoRecordEvent.recordingStats
+                                .recordedDurationNanos
+                        )
+                    )
+                }
+            }
+
+            is VideoRecordEvent.Resume -> {
+                currentCameraState.update { old ->
+                    old.copy(
+                        videoRecordingState = VideoRecordingState.Active.Recording(
+                            audioAmplitude = onVideoRecordEvent.recordingStats.audioStats
+                                .audioAmplitude,
+                            maxDurationMillis = maxDurationMillis,
+                            elapsedTimeNanos = onVideoRecordEvent.recordingStats
+                                .recordedDurationNanos
+                        )
+                    )
+                }
+            }
+
+            is VideoRecordEvent.Status -> {
+                currentCameraState.update { old ->
+                    // don't want to change state from paused to recording if status changes while paused
+                    if (old.videoRecordingState is VideoRecordingState.Active.Paused) {
+                        old.copy(
+                            videoRecordingState = VideoRecordingState.Active.Paused(
+                                audioAmplitude = onVideoRecordEvent.recordingStats.audioStats
+                                    .audioAmplitude,
+                                maxDurationMillis = maxDurationMillis,
+                                elapsedTimeNanos = onVideoRecordEvent.recordingStats
+                                    .recordedDurationNanos
+                            )
+                        )
+                    } else {
+                        old.copy(
+                            videoRecordingState = VideoRecordingState.Active.Recording(
+                                audioAmplitude = onVideoRecordEvent.recordingStats.audioStats
+                                    .audioAmplitude,
+                                maxDurationMillis = maxDurationMillis,
+                                elapsedTimeNanos = onVideoRecordEvent.recordingStats
+                                    .recordedDurationNanos
+                            )
+                        )
+                    }
+                }
+            }
+
             is VideoRecordEvent.Finalize -> {
                 when (onVideoRecordEvent.error) {
-                    ERROR_NONE ->
+                    ERROR_NONE -> {
+                        // update recording state to inactive with the final values of the recording.
+                        currentCameraState.update { old ->
+                            old.copy(
+                                videoRecordingState = VideoRecordingState.Inactive(
+                                    finalElapsedTimeNanos = onVideoRecordEvent.recordingStats
+                                        .recordedDurationNanos
+                                )
+                            )
+                        }
                         onVideoRecord(
                             CameraUseCase.OnVideoRecordEvent.OnVideoRecorded(
                                 onVideoRecordEvent.outputResults.outputUri
                             )
                         )
+                    }
 
-                    else ->
+                    ERROR_DURATION_LIMIT_REACHED -> {
+                        currentCameraState.update { old ->
+                            old.copy(
+                                videoRecordingState = VideoRecordingState.Inactive(
+                                    finalElapsedTimeNanos = maxDurationMillis.milliseconds
+                                        .inWholeNanoseconds
+                                )
+                            )
+                        }
+
                         onVideoRecord(
-                            CameraUseCase.OnVideoRecordEvent.OnVideoRecordError(
-                                onVideoRecordEvent.cause
+                            CameraUseCase.OnVideoRecordEvent.OnVideoRecorded(
+                                onVideoRecordEvent.outputResults.outputUri
                             )
                         )
-                }
-            }
+                    }
 
-            is VideoRecordEvent.Status -> {
-                onVideoRecord(
-                    CameraUseCase.OnVideoRecordEvent.OnVideoRecordStatus(
-                        onVideoRecordEvent.recordingStats.audioStats
-                            .audioAmplitude
-                    )
-                )
+                    else -> {
+                        onVideoRecord(
+                            CameraUseCase.OnVideoRecordEvent.OnVideoRecordError(
+                                RuntimeException(
+                                    "Recording finished with error: ${onVideoRecordEvent.error}",
+                                    onVideoRecordEvent.cause
+                                )
+                            )
+                        )
+                        currentCameraState.update { old ->
+                            old.copy(
+                                videoRecordingState = VideoRecordingState.Inactive(
+                                    finalElapsedTimeNanos = onVideoRecordEvent.recordingStats
+                                        .recordedDurationNanos
+                                )
+                            )
+                        }
+                    }
+                }
             }
         }
     }.apply {
-        mute(initialMuted)
+        mute(!isInitialAudioEnabled)
     }
 }
 
+context(CameraSessionContext)
 private suspend fun runVideoRecording(
-    camera: Camera,
     videoCapture: VideoCapture<Recorder>,
     captureTypeSuffix: String,
     context: Context,
+    maxDurationMillis: Long,
     transientSettings: StateFlow<TransientSessionSettings?>,
     videoCaptureUri: Uri?,
+    videoControlEvents: Channel<VideoCaptureControlEvent>,
     shouldUseUri: Boolean,
     onVideoRecord: (CameraUseCase.OnVideoRecordEvent) -> Unit
-) {
+) = coroutineScope {
     var currentSettings = transientSettings.filterNotNull().first()
 
-    startVideoRecordingInternal(
-        initialMuted = currentSettings.audioMuted,
-        videoCapture,
-        captureTypeSuffix,
+    getPendingRecording(
         context,
+        videoCapture,
+        maxDurationMillis,
+        captureTypeSuffix,
         videoCaptureUri,
         shouldUseUri,
         onVideoRecord
-    ).use { recording ->
+    )?.let {
+        startVideoRecordingInternal(
+            isInitialAudioEnabled = currentSettings.isAudioEnabled,
+            context = context,
+            pendingRecord = it,
+            maxDurationMillis = maxDurationMillis,
+            onVideoRecord = onVideoRecord
+        ).use { recording ->
+            val recordingSettingsUpdater = launch {
+                fun TransientSessionSettings.isFlashModeOn() = flashMode == FlashMode.ON
 
-        fun TransientSessionSettings.isFlashModeOn() = flashMode == FlashMode.ON
-        val isFrontCameraSelector =
-            camera.cameraInfo.cameraSelector == CameraSelector.DEFAULT_FRONT_CAMERA
+                transientSettings.filterNotNull()
+                    .collectLatest { newTransientSettings ->
+                        if (currentSettings.isAudioEnabled != newTransientSettings.isAudioEnabled) {
+                            recording.mute(newTransientSettings.isAudioEnabled)
+                        }
+                        if (currentSettings.isFlashModeOn() !=
+                            newTransientSettings.isFlashModeOn()
+                        ) {
+                            currentSettings = newTransientSettings
+                        }
+                    }
+            }
 
-        if (currentSettings.isFlashModeOn()) {
-            if (!isFrontCameraSelector) {
-                camera.cameraControl.enableTorch(true).await()
-            } else {
-                Log.d(TAG, "Unable to enable torch for front camera.")
+            for (event in videoControlEvents) {
+                when (event) {
+                    is VideoCaptureControlEvent.StartRecordingEvent ->
+                        throw IllegalStateException("A recording is already in progress")
+
+                    VideoCaptureControlEvent.StopRecordingEvent -> {
+                        recordingSettingsUpdater.cancel()
+                        break
+                    }
+
+                    VideoCaptureControlEvent.PauseRecordingEvent -> recording.pause()
+                    VideoCaptureControlEvent.ResumeRecordingEvent -> recording.resume()
+                }
             }
         }
-
-        transientSettings.filterNotNull()
-            .onCompletion {
-                // Could do some fancier tracking of whether the torch was enabled before
-                // calling this.
-                camera.cameraControl.enableTorch(false)
-            }
-            .collectLatest { newTransientSettings ->
-                if (currentSettings.audioMuted != newTransientSettings.audioMuted) {
-                    recording.mute(newTransientSettings.audioMuted)
-                }
-                if (currentSettings.isFlashModeOn() != newTransientSettings.isFlashModeOn()) {
-                    if (!isFrontCameraSelector) {
-                        camera.cameraControl.enableTorch(newTransientSettings.isFlashModeOn())
-                    } else {
-                        Log.d(TAG, "Unable to update torch for front camera.")
-                    }
-                }
-                currentSettings = newTransientSettings
-            }
     }
 }
 
@@ -637,12 +956,9 @@ internal suspend fun processFocusMeteringEvents(cameraControl: CameraControl) {
 
 context(CameraSessionContext)
 internal suspend fun processVideoControlEvents(
-    camera: Camera,
     videoCapture: VideoCapture<Recorder>?,
     captureTypeSuffix: String
 ) = coroutineScope {
-    var recordingJob: Job? = null
-
     for (event in videoCaptureControlEvents) {
         when (event) {
             is VideoCaptureControlEvent.StartRecordingEvent -> {
@@ -651,25 +967,20 @@ internal suspend fun processVideoControlEvents(
                         "Attempted video recording with null videoCapture"
                     )
                 }
-
-                recordingJob = launch(start = CoroutineStart.UNDISPATCHED) {
-                    runVideoRecording(
-                        camera,
-                        videoCapture,
-                        captureTypeSuffix,
-                        context,
-                        transientSettings,
-                        event.videoCaptureUri,
-                        event.shouldUseUri,
-                        event.onVideoRecord
-                    )
-                }
+                runVideoRecording(
+                    videoCapture,
+                    captureTypeSuffix,
+                    context,
+                    event.maxVideoDuration,
+                    transientSettings,
+                    event.videoCaptureUri,
+                    videoCaptureControlEvents,
+                    event.shouldUseUri,
+                    event.onVideoRecord
+                )
             }
 
-            VideoCaptureControlEvent.StopRecordingEvent -> {
-                recordingJob?.cancel()
-                recordingJob = null
-            }
+            else -> {}
         }
     }
 }
@@ -692,6 +1003,23 @@ private fun Preview.Builder.updateCameraStateWithCaptureResults(
                 result: TotalCaptureResult
             ) {
                 super.onCaptureCompleted(session, request, result)
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+                    val nativeBoostState = result.get(CaptureResult.CONTROL_LOW_LIGHT_BOOST_STATE)
+                    val boostState = when (nativeBoostState) {
+                        CameraMetadata.CONTROL_LOW_LIGHT_BOOST_STATE_ACTIVE ->
+                            LowLightBoostState.ACTIVE
+                        else -> LowLightBoostState.INACTIVE
+                    }
+                    currentCameraState.update { old ->
+                        if (old.lowLightBoostState != boostState) {
+                            old.copy(lowLightBoostState = boostState)
+                        } else {
+                            old
+                        }
+                    }
+                }
+
                 val logicalCameraId = session.device.id
                 if (logicalCameraId != targetCameraLogicalId) return
                 try {
@@ -704,7 +1032,9 @@ private fun Preview.Builder.updateCameraStateWithCaptureResults(
                         if (old.debugInfo.logicalCameraId != logicalCameraId ||
                             old.debugInfo.physicalCameraId != physicalCameraId
                         ) {
-                            old.copy(debugInfo = DebugInfo(logicalCameraId, physicalCameraId))
+                            old.copy(
+                                debugInfo = DebugInfo(logicalCameraId, physicalCameraId)
+                            )
                         } else {
                             old
                         }
@@ -717,10 +1047,40 @@ private fun Preview.Builder.updateCameraStateWithCaptureResults(
                         }
                         isFirstFrameTimestampUpdated.value = true
                     }
+                    // Publish stabilization state
+                    publishStabilizationMode(result)
                 } catch (_: Exception) {
                 }
             }
         }
     )
     return this
+}
+
+context(CameraSessionContext)
+private fun publishStabilizationMode(result: TotalCaptureResult) {
+    val nativeVideoStabilizationMode = result.get(CaptureResult.CONTROL_VIDEO_STABILIZATION_MODE)
+    val stabilizationMode = when (nativeVideoStabilizationMode) {
+        CaptureResult.CONTROL_VIDEO_STABILIZATION_MODE_PREVIEW_STABILIZATION ->
+            StabilizationMode.ON
+
+        CaptureResult.CONTROL_VIDEO_STABILIZATION_MODE_ON -> StabilizationMode.HIGH_QUALITY
+        else -> {
+            result.get(CaptureResult.LENS_OPTICAL_STABILIZATION_MODE)?.let {
+                if (it == CaptureResult.LENS_OPTICAL_STABILIZATION_MODE_ON) {
+                    StabilizationMode.OPTICAL
+                } else {
+                    StabilizationMode.OFF
+                }
+            } ?: StabilizationMode.OFF
+        }
+    }
+
+    currentCameraState.update { old ->
+        if (old.stabilizationMode != stabilizationMode) {
+            old.copy(stabilizationMode = stabilizationMode)
+        } else {
+            old
+        }
+    }
 }
