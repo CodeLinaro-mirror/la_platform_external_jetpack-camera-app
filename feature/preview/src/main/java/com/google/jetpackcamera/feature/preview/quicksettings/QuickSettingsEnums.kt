@@ -96,6 +96,18 @@ enum class CameraFlashMode : QuickSettingsEnum {
         override fun getImageVector() = Icons.Filled.FlashOn
         override fun getTextResId() = R.string.quick_settings_flash_on
         override fun getDescriptionResId() = R.string.quick_settings_flash_on_description
+    },
+    LOW_LIGHT_BOOST_INACTIVE {
+        override fun getDrawableResId() = null
+        override fun getImageVector() = Icons.Outlined.Nightlight
+        override fun getTextResId() = R.string.quick_settings_flash_llb
+        override fun getDescriptionResId() = R.string.quick_settings_flash_llb_description
+    },
+    LOW_LIGHT_BOOST_ACTIVE {
+        override fun getDrawableResId() = null
+        override fun getImageVector() = Icons.Filled.Nightlight
+        override fun getTextResId() = R.string.quick_settings_flash_llb
+        override fun getDescriptionResId() = R.string.quick_settings_flash_llb_description
     }
 }
 
@@ -120,7 +132,7 @@ enum class CameraAspectRatio : QuickSettingsEnum {
     }
 }
 
-enum class CameraCaptureMode : QuickSettingsEnum {
+enum class CameraStreamConfig : QuickSettingsEnum {
     MULTI_STREAM {
         override fun getDrawableResId() = R.drawable.multi_stream_icon
         override fun getImageVector() = null // this icon is not available
@@ -147,25 +159,6 @@ enum class CameraDynamicRange : QuickSettingsEnum {
         override fun getImageVector() = Icons.Filled.HdrOn
         override fun getTextResId() = R.string.quick_settings_dynamic_range_hdr
         override fun getDescriptionResId() = R.string.quick_settings_dynamic_range_hdr_description
-    }
-}
-
-enum class CameraLowLightBoost : QuickSettingsEnum {
-
-    ENABLED {
-        override fun getDrawableResId() = null
-        override fun getImageVector() = Icons.Filled.Nightlight
-        override fun getTextResId() = R.string.quick_settings_lowlightboost_enabled
-        override fun getDescriptionResId() =
-            R.string.quick_settings_lowlightboost_enabled_description
-    },
-
-    DISABLED {
-        override fun getDrawableResId() = null
-        override fun getImageVector() = Icons.Outlined.Nightlight
-        override fun getTextResId() = R.string.quick_settings_lowlightboost_disabled
-        override fun getDescriptionResId() =
-            R.string.quick_settings_lowlightboost_disabled_description
     }
 }
 
