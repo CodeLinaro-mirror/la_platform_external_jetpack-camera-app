@@ -17,12 +17,14 @@ package com.google.jetpackcamera.core.camera
 
 import androidx.camera.core.CameraInfo
 import com.google.jetpackcamera.settings.model.AspectRatio
-import com.google.jetpackcamera.settings.model.CaptureMode
 import com.google.jetpackcamera.settings.model.DeviceRotation
 import com.google.jetpackcamera.settings.model.DynamicRange
 import com.google.jetpackcamera.settings.model.FlashMode
 import com.google.jetpackcamera.settings.model.ImageOutputFormat
-import com.google.jetpackcamera.settings.model.Stabilization
+import com.google.jetpackcamera.settings.model.LensFacing
+import com.google.jetpackcamera.settings.model.StabilizationMode
+import com.google.jetpackcamera.settings.model.StreamConfig
+import com.google.jetpackcamera.settings.model.VideoQuality
 
 /**
  * Camera settings that persist as long as a camera is running.
@@ -34,13 +36,12 @@ internal sealed interface PerpetualSessionSettings {
     val aspectRatio: AspectRatio
 
     data class SingleCamera(
-        val cameraInfo: CameraInfo,
         override val aspectRatio: AspectRatio,
-        val captureMode: CaptureMode,
+        val streamConfig: StreamConfig,
         val targetFrameRate: Int,
-        val stabilizePreviewMode: Stabilization,
-        val stabilizeVideoMode: Stabilization,
+        val stabilizationMode: StabilizationMode,
         val dynamicRange: DynamicRange,
+        val videoQuality: VideoQuality,
         val imageFormat: ImageOutputFormat
     ) : PerpetualSessionSettings
 
@@ -59,8 +60,9 @@ internal sealed interface PerpetualSessionSettings {
  * The use cases typically will not need to be re-bound.
  */
 internal data class TransientSessionSettings(
-    val audioMuted: Boolean,
+    val isAudioEnabled: Boolean,
     val deviceRotation: DeviceRotation,
     val flashMode: FlashMode,
-    val zoomScale: Float
+    val zoomScale: Float,
+    val primaryLensFacing: LensFacing
 )
