@@ -15,8 +15,8 @@
  */
 package com.google.jetpackcamera.core.camera
 
-import android.annotation.SuppressLint
 import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraMetadata
 import androidx.annotation.OptIn
 import androidx.camera.camera2.interop.Camera2CameraInfo
 import androidx.camera.camera2.interop.ExperimentalCamera2Interop
@@ -27,11 +27,18 @@ import androidx.camera.core.ImageCapture
 import androidx.camera.core.Preview
 import androidx.camera.core.UseCase
 import androidx.camera.core.UseCaseGroup
+import androidx.camera.video.Quality
 import androidx.camera.video.Recorder
 import androidx.camera.video.VideoCapture
 import com.google.jetpackcamera.settings.model.DynamicRange
 import com.google.jetpackcamera.settings.model.ImageOutputFormat
 import com.google.jetpackcamera.settings.model.LensFacing
+import com.google.jetpackcamera.settings.model.VideoQuality
+import com.google.jetpackcamera.settings.model.VideoQuality.FHD
+import com.google.jetpackcamera.settings.model.VideoQuality.HD
+import com.google.jetpackcamera.settings.model.VideoQuality.SD
+import com.google.jetpackcamera.settings.model.VideoQuality.UHD
+import com.google.jetpackcamera.settings.model.VideoQuality.UNSPECIFIED
 
 val CameraInfo.appLensFacing: LensFacing
     get() = when (this.lensFacing) {
@@ -64,15 +71,6 @@ fun LensFacing.toCameraSelector(): CameraSelector = when (this) {
     LensFacing.BACK -> CameraSelector.DEFAULT_BACK_CAMERA
 }
 
-@SuppressLint("RestrictedApi")
-fun CameraSelector.toAppLensFacing(): LensFacing = when (this.lensFacing) {
-    CameraSelector.LENS_FACING_FRONT -> LensFacing.FRONT
-    CameraSelector.LENS_FACING_BACK -> LensFacing.BACK
-    else -> throw IllegalArgumentException(
-        "Unknown CameraSelector -> LensFacing mapping. [CameraSelector: $this]"
-    )
-}
-
 val CameraInfo.sensorLandscapeRatio: Float
     @OptIn(ExperimentalCamera2Interop::class)
     get() = Camera2CameraInfo.from(this)
@@ -94,6 +92,26 @@ fun Int.toAppImageFormat(): ImageOutputFormat? {
     }
 }
 
+fun VideoQuality.toQuality(): Quality? {
+    return when (this) {
+        SD -> Quality.SD
+        HD -> Quality.HD
+        FHD -> Quality.FHD
+        UHD -> Quality.UHD
+        UNSPECIFIED -> null
+    }
+}
+
+fun Quality.toVideoQuality(): VideoQuality {
+    return when (this) {
+        Quality.SD -> SD
+        Quality.HD -> HD
+        Quality.FHD -> FHD
+        Quality.UHD -> UHD
+        else -> UNSPECIFIED
+    }
+}
+
 /**
  * Checks if preview stabilization is supported by the device.
  *
@@ -107,6 +125,23 @@ val CameraInfo.isPreviewStabilizationSupported: Boolean
  */
 val CameraInfo.isVideoStabilizationSupported: Boolean
     get() = Recorder.getVideoCapabilities(this).isStabilizationSupported
+
+/** Checks if optical image stabilization (OIS) is supported by the device. */
+val CameraInfo.isOpticalStabilizationSupported: Boolean
+    @OptIn(ExperimentalCamera2Interop::class)
+    get() = Camera2CameraInfo.from(this)
+        .getCameraCharacteristic(CameraCharacteristics.LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION)
+        ?.contains(
+            CameraMetadata.LENS_OPTICAL_STABILIZATION_MODE_ON
+        ) ?: false
+
+val CameraInfo.isLowLightBoostSupported: Boolean
+    @OptIn(ExperimentalCamera2Interop::class)
+    get() = Camera2CameraInfo.from(this)
+        .getCameraCharacteristic(CameraCharacteristics.CONTROL_AE_AVAILABLE_MODES)
+        ?.contains(
+            CameraMetadata.CONTROL_AE_MODE_ON_LOW_LIGHT_BOOST_BRIGHTNESS_PRIORITY
+        ) ?: false
 
 fun CameraInfo.filterSupportedFixedFrameRates(desired: Set<Int>): Set<Int> {
     return buildSet {

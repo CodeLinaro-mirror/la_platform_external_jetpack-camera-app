@@ -41,28 +41,27 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.google.jetpackcamera.feature.preview.FlashModeUiState
 import com.google.jetpackcamera.feature.preview.PreviewMode
 import com.google.jetpackcamera.feature.preview.R
 import com.google.jetpackcamera.feature.preview.quicksettings.CameraAspectRatio
-import com.google.jetpackcamera.feature.preview.quicksettings.CameraCaptureMode
 import com.google.jetpackcamera.feature.preview.quicksettings.CameraConcurrentCameraMode
 import com.google.jetpackcamera.feature.preview.quicksettings.CameraDynamicRange
 import com.google.jetpackcamera.feature.preview.quicksettings.CameraFlashMode
 import com.google.jetpackcamera.feature.preview.quicksettings.CameraLensFace
-import com.google.jetpackcamera.feature.preview.quicksettings.CameraLowLightBoost
+import com.google.jetpackcamera.feature.preview.quicksettings.CameraStreamConfig
 import com.google.jetpackcamera.feature.preview.quicksettings.QuickSettingsEnum
 import com.google.jetpackcamera.settings.model.AspectRatio
-import com.google.jetpackcamera.settings.model.CaptureMode
 import com.google.jetpackcamera.settings.model.ConcurrentCameraMode
+import com.google.jetpackcamera.settings.model.DEFAULT_HDR_DYNAMIC_RANGE
+import com.google.jetpackcamera.settings.model.DEFAULT_HDR_IMAGE_OUTPUT
 import com.google.jetpackcamera.settings.model.DynamicRange
 import com.google.jetpackcamera.settings.model.FlashMode
 import com.google.jetpackcamera.settings.model.ImageOutputFormat
 import com.google.jetpackcamera.settings.model.LensFacing
-import com.google.jetpackcamera.settings.model.LowLightBoost
+import com.google.jetpackcamera.settings.model.StreamConfig
 import kotlin.math.min
 
 // completed components ready to go into preview screen
@@ -112,15 +111,13 @@ fun QuickSetHdr(
     onClick: (dynamicRange: DynamicRange, imageOutputFormat: ImageOutputFormat) -> Unit,
     selectedDynamicRange: DynamicRange,
     selectedImageOutputFormat: ImageOutputFormat,
-    hdrDynamicRange: DynamicRange,
-    hdrImageFormat: ImageOutputFormat,
     hdrDynamicRangeSupported: Boolean,
     previewMode: PreviewMode,
     enabled: Boolean
 ) {
     val enum =
-        if (selectedDynamicRange == hdrDynamicRange ||
-            selectedImageOutputFormat == hdrImageFormat
+        if (selectedDynamicRange == DEFAULT_HDR_DYNAMIC_RANGE ||
+            selectedImageOutputFormat == DEFAULT_HDR_IMAGE_OUTPUT
         ) {
             CameraDynamicRange.HDR
         } else {
@@ -133,7 +130,7 @@ fun QuickSetHdr(
         onClick = {
             val newDynamicRange =
                 if (selectedDynamicRange == DynamicRange.SDR && hdrDynamicRangeSupported) {
-                    hdrDynamicRange
+                    DEFAULT_HDR_DYNAMIC_RANGE
                 } else {
                     DynamicRange.SDR
                 }
@@ -141,7 +138,7 @@ fun QuickSetHdr(
                 if (!hdrDynamicRangeSupported ||
                     previewMode is PreviewMode.ExternalImageCaptureMode
                 ) {
-                    hdrImageFormat
+                    DEFAULT_HDR_IMAGE_OUTPUT
                 } else {
                     ImageOutputFormat.JPEG
                 }
@@ -149,30 +146,6 @@ fun QuickSetHdr(
         },
         isHighLighted = (selectedDynamicRange != DynamicRange.SDR),
         enabled = enabled
-    )
-}
-
-@Composable
-fun QuickSetLowLightBoost(
-    modifier: Modifier = Modifier,
-    onClick: (lowLightBoost: LowLightBoost) -> Unit,
-    selectedLowLightBoost: LowLightBoost
-) {
-    val enum = when (selectedLowLightBoost) {
-        LowLightBoost.DISABLED -> CameraLowLightBoost.DISABLED
-        LowLightBoost.ENABLED -> CameraLowLightBoost.ENABLED
-    }
-
-    QuickSettingUiItem(
-        modifier = modifier,
-        enum = enum,
-        onClick = {
-            when (selectedLowLightBoost) {
-                LowLightBoost.DISABLED -> onClick(LowLightBoost.ENABLED)
-                LowLightBoost.ENABLED -> onClick(LowLightBoost.DISABLED)
-            }
-        },
-        isHighLighted = false
     )
 }
 
@@ -202,31 +175,29 @@ fun QuickSetRatio(
 @Composable
 fun QuickSetFlash(
     onClick: (FlashMode) -> Unit,
-    currentFlashMode: FlashMode,
+    flashModeUiState: FlashModeUiState,
     modifier: Modifier = Modifier
 ) {
-    val enum = when (currentFlashMode) {
-        FlashMode.OFF -> CameraFlashMode.OFF
-        FlashMode.AUTO -> CameraFlashMode.AUTO
-        FlashMode.ON -> CameraFlashMode.ON
+    when (flashModeUiState) {
+        is FlashModeUiState.Unavailable ->
+            QuickSettingUiItem(
+                modifier = modifier,
+                enum = CameraFlashMode.OFF,
+                enabled = false,
+                onClick = {}
+            )
+        is FlashModeUiState.Available ->
+            QuickSettingUiItem(
+                modifier = modifier,
+                enum = flashModeUiState.selectedFlashMode.toCameraFlashMode(
+                    flashModeUiState.isActive
+                ),
+                isHighLighted = flashModeUiState.selectedFlashMode == FlashMode.ON,
+                onClick = {
+                    onClick(flashModeUiState.getNextFlashMode())
+                }
+            )
     }
-    QuickSettingUiItem(
-        modifier = modifier
-            .semantics {
-                contentDescription =
-                    when (enum) {
-                        CameraFlashMode.OFF -> "QUICK SETTINGS FLASH IS OFF"
-                        CameraFlashMode.AUTO -> "QUICK SETTINGS FLASH IS AUTO"
-                        CameraFlashMode.ON -> "QUICK SETTINGS FLASH IS ON"
-                    }
-            },
-        enum = enum,
-        isHighLighted = currentFlashMode == FlashMode.ON,
-        onClick =
-        {
-            onClick(currentFlashMode.getNextFlashMode())
-        }
-    )
 }
 
 @Composable
@@ -248,24 +219,24 @@ fun QuickFlipCamera(
 }
 
 @Composable
-fun QuickSetCaptureMode(
-    setCaptureMode: (CaptureMode) -> Unit,
-    currentCaptureMode: CaptureMode,
+fun QuickSetStreamConfig(
+    setStreamConfig: (StreamConfig) -> Unit,
+    currentStreamConfig: StreamConfig,
     modifier: Modifier = Modifier,
     enabled: Boolean = true
 ) {
-    val enum: CameraCaptureMode =
-        when (currentCaptureMode) {
-            CaptureMode.MULTI_STREAM -> CameraCaptureMode.MULTI_STREAM
-            CaptureMode.SINGLE_STREAM -> CameraCaptureMode.SINGLE_STREAM
+    val enum: CameraStreamConfig =
+        when (currentStreamConfig) {
+            StreamConfig.MULTI_STREAM -> CameraStreamConfig.MULTI_STREAM
+            StreamConfig.SINGLE_STREAM -> CameraStreamConfig.SINGLE_STREAM
         }
     QuickSettingUiItem(
         modifier = modifier,
         enum = enum,
         onClick = {
-            when (currentCaptureMode) {
-                CaptureMode.MULTI_STREAM -> setCaptureMode(CaptureMode.SINGLE_STREAM)
-                CaptureMode.SINGLE_STREAM -> setCaptureMode(CaptureMode.MULTI_STREAM)
+            when (currentStreamConfig) {
+                StreamConfig.MULTI_STREAM -> setStreamConfig(StreamConfig.SINGLE_STREAM)
+                StreamConfig.SINGLE_STREAM -> setStreamConfig(StreamConfig.MULTI_STREAM)
             }
         },
         enabled = enabled
@@ -468,46 +439,75 @@ fun QuickSettingsGrid(
  * The top bar indicators for quick settings items.
  */
 @Composable
-fun Indicator(enum: QuickSettingsEnum, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Icon(
-        painter = enum.getPainter(),
-        contentDescription = stringResource(id = enum.getDescriptionResId()),
-        modifier = modifier
-            .size(dimensionResource(id = R.dimen.quick_settings_indicator_size))
-            .clickable { onClick() }
-    )
+fun TopBarSettingIndicator(
+    enum: QuickSettingsEnum,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    onClick: () -> Unit = {}
+) {
+    val contentColor = Color.White.let {
+        if (!enabled) it.copy(alpha = 0.38f) else it
+    }
+    CompositionLocalProvider(LocalContentColor provides contentColor) {
+        Icon(
+            painter = enum.getPainter(),
+            contentDescription = stringResource(id = enum.getDescriptionResId()),
+            modifier = modifier
+                .size(dimensionResource(id = R.dimen.quick_settings_indicator_size))
+                .clickable(onClick = onClick, enabled = enabled)
+        )
+    }
 }
 
 @Composable
-fun FlashModeIndicator(currentFlashMode: FlashMode, onClick: (flashMode: FlashMode) -> Unit) {
-    val enum = when (currentFlashMode) {
-        FlashMode.OFF -> CameraFlashMode.OFF
-        FlashMode.AUTO -> CameraFlashMode.AUTO
-        FlashMode.ON -> CameraFlashMode.ON
+fun FlashModeIndicator(
+    flashModeUiState: FlashModeUiState,
+    onClick: (flashMode: FlashMode) -> Unit
+) {
+    when (flashModeUiState) {
+        is FlashModeUiState.Unavailable ->
+            TopBarSettingIndicator(
+                enum = CameraFlashMode.OFF,
+                enabled = false
+            )
+        is FlashModeUiState.Available ->
+            TopBarSettingIndicator(
+                enum = flashModeUiState.selectedFlashMode.toCameraFlashMode(
+                    flashModeUiState.isActive
+                ),
+                onClick = {
+                    onClick(flashModeUiState.getNextFlashMode())
+                }
+            )
     }
-    Indicator(
-        enum = enum,
-        onClick = {
-            onClick(currentFlashMode.getNextFlashMode())
-        }
-    )
 }
 
 @Composable
 fun QuickSettingsIndicators(
-    currentFlashMode: FlashMode,
+    flashModeUiState: FlashModeUiState,
     onFlashModeClick: (flashMode: FlashMode) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Row(modifier) {
-        FlashModeIndicator(currentFlashMode, onFlashModeClick)
+        FlashModeIndicator(
+            flashModeUiState,
+            onFlashModeClick
+        )
     }
 }
 
-fun FlashMode.getNextFlashMode(): FlashMode {
-    return when (this) {
-        FlashMode.OFF -> FlashMode.ON
-        FlashMode.ON -> FlashMode.AUTO
-        FlashMode.AUTO -> FlashMode.OFF
+private fun FlashModeUiState.Available.getNextFlashMode(): FlashMode = availableFlashModes.run {
+    get((indexOf(selectedFlashMode) + 1) % size)
+}
+
+private fun FlashMode.toCameraFlashMode(isActive: Boolean) = when (this) {
+    FlashMode.OFF -> CameraFlashMode.OFF
+    FlashMode.AUTO -> CameraFlashMode.AUTO
+    FlashMode.ON -> CameraFlashMode.ON
+    FlashMode.LOW_LIGHT_BOOST -> {
+        when (isActive) {
+            true -> CameraFlashMode.LOW_LIGHT_BOOST_ACTIVE
+            false -> CameraFlashMode.LOW_LIGHT_BOOST_INACTIVE
+        }
     }
 }
