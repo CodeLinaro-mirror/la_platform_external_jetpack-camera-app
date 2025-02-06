@@ -34,9 +34,12 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import org.junit.runner.RunWith
 import org.mockito.Mockito
+import org.robolectric.RobolectricTestRunner
 
 @OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
 class ScreenFlashTest {
     private val testScope = TestScope()
     private val testDispatcher = StandardTestDispatcher(testScope.testScheduler)
@@ -113,7 +116,7 @@ class ScreenFlashTest {
             cameraUseCase.initialize(
                 DEFAULT_CAMERA_APP_SETTINGS,
                 CameraUseCase.UseCaseMode.STANDARD
-            )
+            ) {}
             cameraUseCase.runCamera()
         }
 
