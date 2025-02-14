@@ -6,7 +6,7 @@ package {
 
 android_test {
     name: "jetpack-camera-app-tests",
-    team: "trendy_team_camerax",
+    team: "trendy_team_android_camera_innovation_team",
     srcs: [
         "java/**/*.kt",
     ],
