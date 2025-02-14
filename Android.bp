@@ -2,7 +2,7 @@ package {
     default_applicable_licenses: [
         "Android-Apache-2.0",
     ],
-    default_team: "trendy_team_camerax",
+    default_team: "trendy_team_android_camera_innovation_team",
 }
 
 subdirs = [
