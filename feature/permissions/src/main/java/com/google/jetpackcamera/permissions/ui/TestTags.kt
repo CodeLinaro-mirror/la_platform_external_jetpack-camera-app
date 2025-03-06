@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 The Android Open Source Project
+ * Copyright (C) 2024 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,11 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.jetpackcamera.ui
+package com.google.jetpackcamera.permissions.ui
 
-object Routes {
-    const val PREVIEW_ROUTE = "preview"
-    const val SETTINGS_ROUTE = "settings"
-    const val PERMISSIONS_ROUTE = "permissions"
-    const val POST_CAPTURE_ROUTE = "postCapture"
-}
+const val REQUEST_PERMISSION_BUTTON = "RequestPermissionButton"
+const val CAMERA_PERMISSION_BUTTON = "CameraPermissionButton"
+const val RECORD_AUDIO_PERMISSION_BUTTON = "RecordAudioPermissionButton"
