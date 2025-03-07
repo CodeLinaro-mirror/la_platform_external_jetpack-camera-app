@@ -52,6 +52,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.tracing.Trace
 import com.google.jetpackcamera.core.camera.VideoRecordingState
+import com.google.jetpackcamera.core.common.getLastImageUri
 import com.google.jetpackcamera.feature.preview.quicksettings.QuickSettingsScreenOverlay
 import com.google.jetpackcamera.feature.preview.ui.CameraControlsOverlay
 import com.google.jetpackcamera.feature.preview.ui.PreviewDisplay
@@ -62,6 +63,7 @@ import com.google.jetpackcamera.feature.preview.ui.ZoomLevelDisplayState
 import com.google.jetpackcamera.feature.preview.ui.debouncedOrientationFlow
 import com.google.jetpackcamera.feature.preview.ui.debug.DebugOverlayComponent
 import com.google.jetpackcamera.settings.model.AspectRatio
+import com.google.jetpackcamera.settings.model.CaptureMode
 import com.google.jetpackcamera.settings.model.ConcurrentCameraMode
 import com.google.jetpackcamera.settings.model.DEFAULT_CAMERA_APP_SETTINGS
 import com.google.jetpackcamera.settings.model.DynamicRange
@@ -80,6 +82,7 @@ private const val TAG = "PreviewScreen"
 @Composable
 fun PreviewScreen(
     onNavigateToSettings: () -> Unit,
+    onNavigateToPostCapture: (uri: Uri?) -> Unit,
     previewMode: PreviewMode,
     isDebugMode: Boolean,
     modifier: Modifier = Modifier,
@@ -143,7 +146,7 @@ fun PreviewScreen(
                 onChangeZoomScale = viewModel::setZoomScale,
                 onChangeFlash = viewModel::setFlash,
                 onChangeAspectRatio = viewModel::setAspectRatio,
-                onChangeCaptureMode = viewModel::setCaptureMode,
+                onSetStreamConfig = viewModel::setStreamConfig,
                 onChangeDynamicRange = viewModel::setDynamicRange,
                 onChangeConcurrentCameraMode = viewModel::setConcurrentCameraMode,
                 onChangeImageFormat = viewModel::setImageFormat,
@@ -155,11 +158,21 @@ fun PreviewScreen(
                 onCaptureImageWithUri = viewModel::captureImageWithUri,
                 onStartVideoRecording = viewModel::startVideoRecording,
                 onStopVideoRecording = viewModel::stopVideoRecording,
+                onLockVideoRecording = viewModel::setLockedRecording,
                 onToastShown = viewModel::onToastShown,
                 onRequestWindowColorMode = onRequestWindowColorMode,
                 onSnackBarResult = viewModel::onSnackBarResult,
-                isDebugMode = isDebugMode
+                isDebugMode = isDebugMode,
+                onImageWellClick = { uri -> onNavigateToPostCapture(uri) }
             )
+
+            // TODO(yasith): Remove and use ImageRepository after implementing
+            LaunchedEffect(Unit) {
+                val lastCapturedImageUri = getLastImageUri(context)
+                lastCapturedImageUri?.let { uri ->
+                    viewModel.updateLastCapturedImageUri(uri)
+                }
+            }
         }
     }
 }
@@ -178,7 +191,7 @@ private fun ContentScreen(
     onChangeZoomScale: (Float) -> Unit = {},
     onChangeFlash: (FlashMode) -> Unit = {},
     onChangeAspectRatio: (AspectRatio) -> Unit = {},
-    onChangeCaptureMode: (StreamConfig) -> Unit = {},
+    onSetStreamConfig: (StreamConfig) -> Unit = {},
     onChangeDynamicRange: (DynamicRange) -> Unit = {},
     onChangeConcurrentCameraMode: (ConcurrentCameraMode) -> Unit = {},
     onChangeImageFormat: (ImageOutputFormat) -> Unit = {},
@@ -199,10 +212,12 @@ private fun ContentScreen(
         (PreviewViewModel.VideoCaptureEvent) -> Unit
     ) -> Unit = { _, _, _ -> },
     onStopVideoRecording: () -> Unit = {},
+    onLockVideoRecording: (Boolean) -> Unit = {},
     onToastShown: () -> Unit = {},
     onRequestWindowColorMode: (Int) -> Unit = {},
     onSnackBarResult: (String) -> Unit = {},
-    isDebugMode: Boolean = false
+    isDebugMode: Boolean = false,
+    onImageWellClick: (uri: Uri?) -> Unit = {}
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     Scaffold(
@@ -244,7 +259,7 @@ private fun ContentScreen(
                 onLensFaceClick = onSetLensFacing,
                 onFlashModeClick = onChangeFlash,
                 onAspectRatioClick = onChangeAspectRatio,
-                onStreamConfigClick = onChangeCaptureMode,
+                onStreamConfigClick = onSetStreamConfig,
                 onDynamicRangeClick = onChangeDynamicRange,
                 onImageOutputFormatClick = onChangeImageFormat,
                 onConcurrentCameraModeClick = onChangeConcurrentCameraMode
@@ -264,7 +279,9 @@ private fun ContentScreen(
                 onCaptureImageWithUri = onCaptureImageWithUri,
                 onStartVideoRecording = onStartVideoRecording,
                 onStopVideoRecording = onStopVideoRecording,
-                zoomLevelDisplayState = remember { ZoomLevelDisplayState(isDebugMode) }
+                zoomLevelDisplayState = remember { ZoomLevelDisplayState(isDebugMode) },
+                onImageWellClick = onImageWellClick,
+                onLockVideoRecording = onLockVideoRecording
             )
 
             DebugOverlayComponent(
@@ -331,10 +348,62 @@ private fun ContentScreenPreview() {
 
 @Preview
 @Composable
-private fun ContentScreen_WhileRecording() {
+private fun ContentScreen_Standard_Idle() {
     MaterialTheme(colorScheme = darkColorScheme()) {
         ContentScreen(
             previewUiState = FAKE_PREVIEW_UI_STATE_READY.copy(),
+            screenFlashUiState = ScreenFlash.ScreenFlashUiState(),
+            surfaceRequest = null
+        )
+    }
+}
+
+@Preview
+@Composable
+private fun ContentScreen_ImageOnly_Idle() {
+    MaterialTheme(colorScheme = darkColorScheme()) {
+        ContentScreen(
+            previewUiState = FAKE_PREVIEW_UI_STATE_READY.copy(
+                captureButtonUiState = CaptureButtonUiState.Enabled.Idle(CaptureMode.IMAGE_ONLY)
+            ),
+            screenFlashUiState = ScreenFlash.ScreenFlashUiState(),
+            surfaceRequest = null
+        )
+    }
+}
+
+@Preview
+@Composable
+private fun ContentScreen_VideoOnly_Idle() {
+    MaterialTheme(colorScheme = darkColorScheme()) {
+        ContentScreen(
+            previewUiState = FAKE_PREVIEW_UI_STATE_READY.copy(
+                captureButtonUiState = CaptureButtonUiState.Enabled.Idle(CaptureMode.VIDEO_ONLY)
+            ),
+            screenFlashUiState = ScreenFlash.ScreenFlashUiState(),
+            surfaceRequest = null
+        )
+    }
+}
+
+@Preview
+@Composable
+private fun ContentScreen_Standard_Recording() {
+    MaterialTheme(colorScheme = darkColorScheme()) {
+        ContentScreen(
+            previewUiState = FAKE_PREVIEW_UI_STATE_PRESSED_RECORDING,
+            screenFlashUiState = ScreenFlash.ScreenFlashUiState(),
+            surfaceRequest = null
+        )
+    }
+}
+
+@Preview
+@Composable
+private fun ContentScreen_Locked_Recording() {
+    MaterialTheme(colorScheme = darkColorScheme()) {
+        ContentScreen(
+            previewUiState = FAKE_PREVIEW_UI_STATE_LOCKED_RECORDING,
             screenFlashUiState = ScreenFlash.ScreenFlashUiState(),
             surfaceRequest = null
         )
@@ -347,4 +416,16 @@ private val FAKE_PREVIEW_UI_STATE_READY = PreviewUiState.Ready(
     systemConstraints = TYPICAL_SYSTEM_CONSTRAINTS,
     previewMode = PreviewMode.StandardMode {},
     captureModeToggleUiState = CaptureModeToggleUiState.Invisible
+)
+
+private val FAKE_PREVIEW_UI_STATE_PRESSED_RECORDING = FAKE_PREVIEW_UI_STATE_READY.copy(
+    videoRecordingState = VideoRecordingState.Active.Recording(0, 0.0, 0),
+    captureButtonUiState = CaptureButtonUiState.Enabled.Recording.PressedRecording,
+    audioUiState = AudioUiState.Enabled.On(1.0)
+)
+
+private val FAKE_PREVIEW_UI_STATE_LOCKED_RECORDING = FAKE_PREVIEW_UI_STATE_READY.copy(
+    videoRecordingState = VideoRecordingState.Active.Recording(0, 0.0, 0),
+    captureButtonUiState = CaptureButtonUiState.Enabled.Recording.LockedRecording,
+    audioUiState = AudioUiState.Enabled.On(1.0)
 )
