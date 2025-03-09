@@ -27,11 +27,12 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.transform
 
-private val APP_REQUIRED_PERMISSIONS: List<String> = buildList {
+internal val APP_REQUIRED_PERMISSIONS: List<String> = buildList {
     add(android.Manifest.permission.CAMERA)
     add(android.Manifest.permission.RECORD_AUDIO)
     if (Build.VERSION.SDK_INT <= 28) {
         add(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        add(android.Manifest.permission.READ_EXTERNAL_STORAGE)
     }
 }
 

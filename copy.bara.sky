@@ -1,0 +1,122 @@
+"""Copybara config to merge Jetpack Camera App code from upstream-main to main."""
+
+core.workflow(
+  name = "jetpack_camera_app_copy_upstream_to_main",
+  origin = git.origin(
+    url = "https://android.googlesource.com/platform/external/jetpack-camera-app",
+    ref = "upstream-main"
+  ),
+  destination = git.gerrit_destination(
+    url = "https://android.googlesource.com/platform/external/jetpack-camera-app",
+    fetch = "main",
+    reviewers = [
+        "davidjia@google.com",
+        "trevormcguire@google.com",
+        "kcrevecoeur@google.com",
+        "yasith@google.com"
+    ]
+  ),
+  origin_files = glob(
+    include = ["**"],
+    exclude = [
+      "OWNERS",
+      "**/OWNERS",
+    ],
+  ),
+  destination_files = glob(
+    include = ["**"],
+    exclude = [
+      "copy.bara.sky",
+      "METADATA",
+      "MODULE_LICENSE_APACHE2",
+      "OWNERS",
+      "Android.bp",
+      "**/Android.bp",
+      "**/androidTest/AndroidManifest.xml",
+      "**/test/AndroidManifest.xml",
+      "**/AndroidTest.xml",
+      "TEST_MAPPING",
+      "app/src/main/java/com/google/jetpackcamera/BuildConfig.kt"
+    ],
+  ),
+  authoring = authoring.pass_thru(
+        "JCA Team <mdb.jca-core-team@google.com>"
+    ),
+  mode = "SQUASH",
+  transformations = [
+    core.replace(
+        before = 'xmlns:tools="http://schemas.android.com/tools"',
+        after = 'xmlns:tools="http://schemas.android.com/tools" package="com.google.jetpackcamera"',
+        paths = glob(["app/src/main/AndroidManifest.xml"])
+    ),
+    core.replace(
+        before = 'android:name=".JetpackCameraApplication"',
+        after = 'android:name="JetpackCameraApplication"',
+        paths = glob(["app/src/main/AndroidManifest.xml"])
+    ),
+    core.replace(
+        before = 'xmlns:tools="http://schemas.android.com/tools"',
+        after = 'xmlns:tools="http://schemas.android.com/tools" package="com.google.jetpackcamera.core.camera"',
+        paths = glob(["core/camera/src/main/AndroidManifest.xml"])
+    ),
+    core.replace(
+        before = '<manifest>',
+        after = '<manifest package="com.google.jetpackcamera.core.common">',
+        paths = glob(["core/common/src/main/AndroidManifest.xml"])
+    ),
+    core.replace(
+        before = '<manifest>',
+        after = '<manifest package="com.google.jetpackcamera.data.settings">',
+        paths = glob(["data/settings/src/main/AndroidManifest.xml"])
+    ),
+    core.replace(
+        before = '<manifest>',
+        after = '<manifest package="com.google.jetpackcamera.feature.preview">',
+        paths = glob(["feature/preview/src/main/AndroidManifest.xml"])
+    ),
+    core.replace(
+        before = 'xmlns:android="http://schemas.android.com/apk/res/android"',
+        after = 'xmlns:android="http://schemas.android.com/apk/res/android" package="com.google.jetpackcamera.permissions"',
+        paths = glob(["feature/permissions/src/main/AndroidManifest.xml"])
+    ),
+    core.replace(
+        before = 'xmlns:android="http://schemas.android.com/apk/res/android"',
+        after = 'xmlns:android="http://schemas.android.com/apk/res/android" package="com.google.jetpackcamera.settings"',
+        paths = glob(["feature/settings/src/main/AndroidManifest.xml"])
+    ),
+    core.replace(
+        before = '@HiltAndroidApp',
+        after = '@HiltAndroidApp(Application::class)',
+    ),
+    core.replace(
+        before = 'class JetpackCameraApplication : Application()',
+        after = 'class JetpackCameraApplication : Hilt_JetpackCameraApplication()',
+    ),
+    core.replace(
+        before = '@AndroidEntryPoint',
+        after = '@AndroidEntryPoint(ComponentActivity::class)',
+    ),
+    core.replace(
+        before = 'class MainActivity : ComponentActivity() {',
+        after = 'class MainActivity : Hilt_MainActivity() {',
+    )],
+)
+
+service.migration(
+        migration_name = "jetpack_camera_app_copy_upstream_to_main",
+        owner_mdb = "jca-core-team",
+        contact_email = "mdb.jca-core-team@google.com",
+        notifications = service.notifications(
+            on_error = [
+                service.email(address = "trevormcguire@google.com"),
+                service.email(address = "davidjia@google.com"),
+                service.email(address = "kcrevecoeur@google.com"),
+                service.email(address = "yasith@google.com"),
+            ],
+        ),
+        state = "ACTIVE",
+        flags = {
+            "--ignore-noop": [],
+        },
+        triggering = "EVENT_BASED",
+    )
