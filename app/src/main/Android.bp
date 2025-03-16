@@ -22,6 +22,7 @@ java_defaults {
         "jetpack-camera-app_feature_permissions",
         "jetpack-camera-app_feature_preview",
         "jetpack-camera-app_feature_settings",
+        "jetpack-camera-app_feature_postcapture",
     ],
     srcs: [
         "java/**/*.kt",
