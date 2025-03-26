@@ -17,7 +17,7 @@ android_library {
         "kotlin-reflect",
         "kotlinx_coroutines_guava",
         "jetpack-camera-app_core_common",
-
+        "jetpack-camera-app_data_media",
     ],
     sdk_version: "34",
     min_sdk_version: "21",
