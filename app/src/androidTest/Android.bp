@@ -10,7 +10,10 @@ android_test {
     srcs: [
         "java/**/*.kt",
     ],
-
+    // Test orchestrator not available
+    exclude_srcs: [
+        "java/com/google/jetpackcamera/PermissionsTest.kt",
+    ],
     static_libs: [
         "androidx.test.runner",
         "androidx.test.uiautomator_uiautomator",
