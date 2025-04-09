@@ -26,6 +26,7 @@ android_library {
         "androidx.camera_camera-compose",
         "androidx.camera_camera-core",
         "androidx.camera_camera-viewfinder",
+        "jetpack-camera-app_data_media",
         "jetpack-camera-app_data_settings",
         "jetpack-camera-app_core_camera",
         "jetpack-camera-app_core_common",
