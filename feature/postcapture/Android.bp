@@ -4,22 +4,22 @@ package {
     ],
 }
 
-android_library {
-    name: "jetpack-camera-app_feature_postcapture",
-    srcs: ["src/main/**/*.kt"],
-    static_libs: [
-        "androidx.compose.runtime_runtime",
-        "androidx.compose.material3_material3",
-        "androidx.compose.material_material-icons-extended",
-        "androidx.compose.ui_ui-tooling-preview",
-        "androidx.hilt_hilt-navigation-compose",
-        "androidx.compose.ui_ui-tooling",
-        "kotlin-reflect",
-        "kotlinx_coroutines_guava",
-        "jetpack-camera-app_core_common",
-        "jetpack-camera-app_data_media",
-    ],
-    sdk_version: "34",
-    min_sdk_version: "21",
-    manifest: "src/main/AndroidManifest.xml",
-}
+//android_library {
+//    name: "jetpack-camera-app_feature_postcapture",
+//    srcs: ["src/main/**/*.kt"],
+//    static_libs: [
+//        "androidx.compose.runtime_runtime",
+//        "androidx.compose.material3_material3",
+//        "androidx.compose.material_material-icons-extended",
+//        "androidx.compose.ui_ui-tooling-preview",
+//        "androidx.hilt_hilt-navigation-compose",
+//        "androidx.compose.ui_ui-tooling",
+//        "kotlin-reflect",
+//        "kotlinx_coroutines_guava",
+//        "jetpack-camera-app_core_common",
+//        "jetpack-camera-app_data_media",
+//    ],
+//    sdk_version: "34",
+//    min_sdk_version: "21",
+//    manifest: "src/main/AndroidManifest.xml",
+//}

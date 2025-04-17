@@ -33,7 +33,7 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.google.jetpackcamera.BuildConfig
-import com.google.jetpackcamera.feature.postcapture.PostCaptureScreen
+//import com.google.jetpackcamera.feature.postcapture.PostCaptureScreen
 import com.google.jetpackcamera.feature.preview.PreviewMode
 import com.google.jetpackcamera.feature.preview.PreviewScreen
 import com.google.jetpackcamera.permissions.PermissionsScreen
@@ -151,7 +151,7 @@ private fun JetpackCameraNavHost(
         composable(
             POST_CAPTURE_ROUTE
         ) {
-            PostCaptureScreen()
+            //PostCaptureScreen()
         }
     }
 }
