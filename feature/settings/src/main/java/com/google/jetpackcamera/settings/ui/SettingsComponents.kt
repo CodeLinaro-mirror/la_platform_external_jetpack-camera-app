@@ -187,7 +187,11 @@ fun DefaultCameraFacing(
     setDefaultLensFacing: (LensFacing) -> Unit
 ) {
     SwitchSettingUI(
-        modifier = modifier.testTag(BTN_SWITCH_SETTING_LENS_FACING_TAG),
+        modifier = modifier.apply {
+            if (lensUiState is FlipLensUiState.Disabled) {
+                testTag(lensUiState.disabledRationale.testTag)
+            }
+        },
         title = stringResource(id = R.string.default_facing_camera_title),
         description = when (lensUiState) {
             is FlipLensUiState.Disabled -> {
@@ -452,7 +456,14 @@ fun TargetFpsSetting(
     modifier: Modifier = Modifier
 ) {
     BasicPopupSetting(
-        modifier = modifier.testTag(BTN_OPEN_DIALOG_SETTING_FPS_TAG),
+        modifier = modifier
+            .apply {
+                if (fpsUiState is FpsUiState.Disabled) {
+                    testTag(fpsUiState.disabledRationale.testTag)
+                } else {
+                    testTag(BTN_OPEN_DIALOG_SETTING_FPS_TAG)
+                }
+            },
         title = stringResource(id = R.string.fps_title),
         enabled = fpsUiState is FpsUiState.Enabled,
         leadingIcon = null,
@@ -571,7 +582,14 @@ fun StabilizationSetting(
     // entire setting disabled when no available fps or target fps = 60
     // stabilization is unsupported >30 fps
     BasicPopupSetting(
-        modifier = modifier.testTag(BTN_OPEN_DIALOG_SETTING_VIDEO_STABILIZATION_TAG),
+        modifier = modifier.apply {
+            when (stabilizationUiState) {
+                is StabilizationUiState.Disabled ->
+                    testTag(stabilizationUiState.disabledRationale.testTag)
+
+                else -> testTag(BTN_OPEN_DIALOG_SETTING_VIDEO_STABILIZATION_TAG)
+            }
+        },
         title = stringResource(R.string.video_stabilization_title),
         leadingIcon = null,
         enabled = stabilizationUiState is StabilizationUiState.Enabled,
@@ -601,9 +619,18 @@ fun StabilizationSetting(
                 when (stabilizationUiState) {
                     is StabilizationUiState.Enabled -> {
                         SingleChoiceSelector(
-                            modifier = Modifier.testTag(
-                                BTN_DIALOG_VIDEO_STABILIZATION_OPTION_AUTO_TAG
-                            ),
+                            modifier = Modifier.apply {
+                                if (stabilizationUiState.stabilizationAutoState
+                                        is SingleSelectableState.Disabled
+                                ) {
+                                    testTag(
+                                        stabilizationUiState.stabilizationAutoState
+                                            .disabledRationale.testTag
+                                    )
+                                } else {
+                                    testTag(BTN_DIALOG_VIDEO_STABILIZATION_OPTION_AUTO_TAG)
+                                }
+                            },
                             text = stringResource(id = R.string.stabilization_selector_auto),
                             secondaryText = stringResource(
                                 id = R.string.stabilization_selector_auto_info
@@ -618,9 +645,18 @@ fun StabilizationSetting(
                         )
 
                         SingleChoiceSelector(
-                            modifier = Modifier.testTag(
-                                BTN_DIALOG_VIDEO_STABILIZATION_OPTION_ON_TAG
-                            ),
+                            modifier = Modifier.apply {
+                                if (stabilizationUiState.stabilizationOnState
+                                        is SingleSelectableState.Disabled
+                                ) {
+                                    testTag(
+                                        stabilizationUiState.stabilizationOnState
+                                            .disabledRationale.testTag
+                                    )
+                                } else {
+                                    testTag(BTN_DIALOG_VIDEO_STABILIZATION_OPTION_ON_TAG)
+                                }
+                            },
                             text = stringResource(id = R.string.stabilization_selector_on),
                             secondaryText = stringResource(
                                 id = R.string.stabilization_selector_on_info
@@ -637,9 +673,18 @@ fun StabilizationSetting(
                         // high quality selector
                         // disabled if target fps = 60 (see VideoCapabilities.isStabilizationSupported)
                         SingleChoiceSelector(
-                            modifier = Modifier.testTag(
-                                BTN_DIALOG_VIDEO_STABILIZATION_OPTION_HIGH_QUALITY_TAG
-                            ),
+                            modifier = Modifier.apply {
+                                if (stabilizationUiState.stabilizationHighQualityState
+                                        is SingleSelectableState.Disabled
+                                ) {
+                                    testTag(
+                                        stabilizationUiState.stabilizationHighQualityState
+                                            .disabledRationale.testTag
+                                    )
+                                } else {
+                                    testTag(BTN_DIALOG_VIDEO_STABILIZATION_OPTION_HIGH_QUALITY_TAG)
+                                }
+                            },
                             text = stringResource(
                                 id = R.string.stabilization_selector_high_quality
                             ),
@@ -658,9 +703,18 @@ fun StabilizationSetting(
 
                         // optical selector
                         SingleChoiceSelector(
-                            modifier = Modifier.testTag(
-                                BTN_DIALOG_VIDEO_STABILIZATION_OPTION_OPTICAL_TAG
-                            ),
+                            modifier = Modifier.apply {
+                                if (stabilizationUiState.stabilizationOpticalState
+                                        is SingleSelectableState.Disabled
+                                ) {
+                                    testTag(
+                                        stabilizationUiState.stabilizationOpticalState
+                                            .disabledRationale.testTag
+                                    )
+                                } else {
+                                    testTag(BTN_DIALOG_VIDEO_STABILIZATION_OPTION_OPTICAL_TAG)
+                                }
+                            },
                             text = stringResource(
                                 id = R.string.stabilization_selector_optical
                             ),
@@ -880,7 +934,8 @@ fun SwitchSettingUI(
                 role = Role.Switch,
                 value = settingValue,
                 onValueChange = { value -> onSwitchChanged(value) }
-            ),
+            )
+            .testTag(BTN_SWITCH_SETTING_LENS_FACING_TAG),
         enabled = enabled,
         title = title,
         description = description,

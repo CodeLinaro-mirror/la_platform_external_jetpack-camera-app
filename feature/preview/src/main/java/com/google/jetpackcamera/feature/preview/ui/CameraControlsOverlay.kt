@@ -17,7 +17,6 @@ package com.google.jetpackcamera.feature.preview.ui
 
 import android.content.ContentResolver
 import android.net.Uri
-import android.util.Range
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -32,7 +31,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Videocam
@@ -59,9 +57,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.jetpackcamera.core.camera.VideoRecordingState
 import com.google.jetpackcamera.feature.preview.CaptureButtonUiState
-import com.google.jetpackcamera.feature.preview.CaptureModeUiState
+import com.google.jetpackcamera.feature.preview.CaptureModeToggleUiState
 import com.google.jetpackcamera.feature.preview.DEFAULT_CAPTURE_BUTTON_STATE
-import com.google.jetpackcamera.feature.preview.DisabledReason
 import com.google.jetpackcamera.feature.preview.ElapsedTimeUiState
 import com.google.jetpackcamera.feature.preview.FlashModeUiState
 import com.google.jetpackcamera.feature.preview.MultipleEventsCutter
@@ -69,14 +66,10 @@ import com.google.jetpackcamera.feature.preview.PreviewMode
 import com.google.jetpackcamera.feature.preview.PreviewUiState
 import com.google.jetpackcamera.feature.preview.PreviewViewModel
 import com.google.jetpackcamera.feature.preview.R
-import com.google.jetpackcamera.feature.preview.SingleSelectableState
 import com.google.jetpackcamera.feature.preview.StabilizationUiState
-import com.google.jetpackcamera.feature.preview.ZoomUiState
 import com.google.jetpackcamera.feature.preview.quicksettings.ui.QuickSettingsIndicators
 import com.google.jetpackcamera.feature.preview.quicksettings.ui.ToggleQuickSettingsButton
 import com.google.jetpackcamera.feature.preview.ui.debug.DebugOverlayToggleButton
-import com.google.jetpackcamera.settings.model.CameraZoomRatio
-import com.google.jetpackcamera.settings.model.CaptureMode
 import com.google.jetpackcamera.settings.model.FlashMode
 import com.google.jetpackcamera.settings.model.ImageOutputFormat
 import com.google.jetpackcamera.settings.model.LensFacing
@@ -105,16 +98,14 @@ fun CameraControlsOverlay(
     modifier: Modifier = Modifier,
     zoomLevelDisplayState: ZoomLevelDisplayState = remember { ZoomLevelDisplayState() },
     onNavigateToSettings: () -> Unit = {},
-    onSetCaptureMode: (CaptureMode) -> Unit = {},
     onFlipCamera: () -> Unit = {},
     onChangeFlash: (FlashMode) -> Unit = {},
     onChangeImageFormat: (ImageOutputFormat) -> Unit = {},
-    onDisabledCaptureMode: (DisabledReason) -> Unit = {},
+    onToggleWhenDisabled: (CaptureModeToggleUiState.DisabledReason) -> Unit = {},
     onToggleQuickSettings: () -> Unit = {},
     onToggleDebugOverlay: () -> Unit = {},
     onToggleAudio: () -> Unit = {},
     onSetPause: (Boolean) -> Unit = {},
-    onSetZoom: (CameraZoomRatio) -> Unit = {},
     onCaptureImageWithUri: (
         ContentResolver,
         Uri?,
@@ -127,12 +118,12 @@ fun CameraControlsOverlay(
         (PreviewViewModel.VideoCaptureEvent) -> Unit
     ) -> Unit = { _, _, _ -> },
     onStopVideoRecording: () -> Unit = {},
-    onImageWellClick: () -> Unit = {},
+    onImageWellClick: (uri: Uri?) -> Unit = {},
     onLockVideoRecording: (Boolean) -> Unit
 ) {
     // Show the current zoom level for a short period of time, only when the level changes.
     var firstRun by remember { mutableStateOf(true) }
-    LaunchedEffect(previewUiState.zoomUiState) {
+    LaunchedEffect(previewUiState.zoomScale) {
         if (firstRun) {
             firstRun = false
         } else {
@@ -170,21 +161,20 @@ fun CameraControlsOverlay(
                     .fillMaxWidth()
                     .align(Alignment.BottomCenter),
                 previewUiState = previewUiState,
-                zoomUiState = previewUiState.zoomUiState,
+                zoomLevel = previewUiState.zoomScale,
                 physicalCameraId = previewUiState.currentPhysicalCameraId,
                 logicalCameraId = previewUiState.currentLogicalCameraId,
                 showZoomLevel = zoomLevelDisplayState.showZoomLevel,
                 isQuickSettingsOpen = previewUiState.quickSettingsIsOpen,
                 systemConstraints = previewUiState.systemConstraints,
                 videoRecordingState = previewUiState.videoRecordingState,
-                onSetCaptureMode = onSetCaptureMode,
                 onFlipCamera = onFlipCamera,
-                onSetZoom = onSetZoom,
                 onCaptureImageWithUri = onCaptureImageWithUri,
                 onToggleQuickSettings = onToggleQuickSettings,
                 onToggleAudio = onToggleAudio,
                 onSetPause = onSetPause,
-                onDisabledCaptureMode = onDisabledCaptureMode,
+                onChangeImageFormat = onChangeImageFormat,
+                onToggleWhenDisabled = onToggleWhenDisabled,
                 onStartVideoRecording = onStartVideoRecording,
                 onStopVideoRecording = onStopVideoRecording,
                 onImageWellClick = onImageWellClick,
@@ -271,7 +261,7 @@ private fun ControlsBottom(
     previewUiState: PreviewUiState.Ready,
     physicalCameraId: String? = null,
     logicalCameraId: String? = null,
-    zoomUiState: ZoomUiState,
+    zoomLevel: Float,
     showZoomLevel: Boolean,
     isQuickSettingsOpen: Boolean,
     systemConstraints: SystemConstraints,
@@ -286,29 +276,27 @@ private fun ControlsBottom(
     onToggleQuickSettings: () -> Unit = {},
     onToggleAudio: () -> Unit = {},
     onSetPause: (Boolean) -> Unit = {},
-    onSetCaptureMode: (CaptureMode) -> Unit = {},
-    onDisabledCaptureMode: (DisabledReason) -> Unit = {},
-    onSetZoom: (CameraZoomRatio) -> Unit = {},
+    onChangeImageFormat: (ImageOutputFormat) -> Unit = {},
+    onToggleWhenDisabled: (CaptureModeToggleUiState.DisabledReason) -> Unit = {},
     onStartVideoRecording: (
         Uri?,
         Boolean,
         (PreviewViewModel.VideoCaptureEvent) -> Unit
     ) -> Unit = { _, _, _ -> },
     onStopVideoRecording: () -> Unit = {},
-    onImageWellClick: () -> Unit = {},
+    onImageWellClick: (uri: Uri?) -> Unit = {},
     onLockVideoRecording: (Boolean) -> Unit = {}
 ) {
-    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
         CompositionLocalProvider(
             LocalTextStyle provides LocalTextStyle.current.copy(fontSize = 20.sp)
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                AnimatedVisibility(
-                    visible = (showZoomLevel && zoomUiState is ZoomUiState.Enabled),
-                    enter = fadeIn(),
-                    exit = fadeOut()
-                ) {
-                    ZoomRatioText(zoomUiState as ZoomUiState.Enabled)
+                if (showZoomLevel) {
+                    ZoomScaleText(zoomLevel)
                 }
                 if (previewUiState.debugUiState.isDebugMode) {
                     CurrentCameraIdText(physicalCameraId, logicalCameraId)
@@ -334,7 +322,7 @@ private fun ControlsBottom(
         Column {
             if (!isQuickSettingsOpen &&
                 previewUiState.captureModeToggleUiState
-                    is CaptureModeUiState.Enabled
+                    is CaptureModeToggleUiState.Visible
             ) {
                 // TODO(yasith): Align to end of ImageWell based on alignment lines
                 Box(
@@ -342,8 +330,8 @@ private fun ControlsBottom(
                 ) {
                     CaptureModeToggleButton(
                         uiState = previewUiState.captureModeToggleUiState,
-                        onChangeCaptureMode = onSetCaptureMode,
-                        onToggleWhenDisabled = onDisabledCaptureMode,
+                        onChangeImageFormat = onChangeImageFormat,
+                        onToggleWhenDisabled = onToggleWhenDisabled,
                         modifier = Modifier.testTag(CAPTURE_MODE_TOGGLE_BUTTON)
                     )
                 }
@@ -385,30 +373,32 @@ private fun ControlsBottom(
                     previewMode = previewUiState.previewMode,
                     isQuickSettingsOpen = isQuickSettingsOpen,
                     onCaptureImageWithUri = onCaptureImageWithUri,
-                    onSetZoom = onSetZoom,
                     onToggleQuickSettings = onToggleQuickSettings,
                     onStartVideoRecording = onStartVideoRecording,
                     onStopVideoRecording = onStopVideoRecording,
                     onLockVideoRecording = onLockVideoRecording
                 )
-
-                Box(
-                    modifier = Modifier.weight(1f).size(120.dp),
-                    contentAlignment = Alignment.Center
-                ) {
+                Row(Modifier.weight(1f), horizontalArrangement = Arrangement.SpaceEvenly) {
                     if (videoRecordingState is VideoRecordingState.Active) {
                         AmplitudeVisualizer(
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxSize(),
                             onToggleAudio = onToggleAudio,
                             audioUiState = previewUiState.audioUiState
                         )
-                    } else if (!isQuickSettingsOpen &&
-                        previewUiState.previewMode is PreviewMode.StandardMode
-                    ) {
-                        ImageWell(
-                            imageWellUiState = previewUiState.imageWellUiState,
-                            onClick = onImageWellClick
-                        )
+                    } else {
+                        Column {
+                            if (!isQuickSettingsOpen &&
+                                previewUiState.previewMode is PreviewMode.StandardMode
+                            ) {
+                                ImageWell(
+                                    modifier = Modifier.weight(1f),
+                                    imageWellUiState = previewUiState.imageWellUiState,
+                                    onClick = onImageWellClick
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -423,7 +413,6 @@ private fun CaptureButton(
     isQuickSettingsOpen: Boolean,
     previewMode: PreviewMode,
     onToggleQuickSettings: () -> Unit = {},
-    onSetZoom: (CameraZoomRatio) -> Unit = {},
     onCaptureImageWithUri: (
         ContentResolver,
         Uri?,
@@ -443,8 +432,7 @@ private fun CaptureButton(
 
     CaptureButton(
         modifier = modifier.testTag(CAPTURE_BUTTON),
-        onSetZoom = onSetZoom,
-        onImageCapture = {
+        onCaptureImage = {
             if (captureButtonUiState is CaptureButtonUiState.Enabled) {
                 multipleEventsCutter.processEvent {
                     when (previewMode) {
@@ -494,7 +482,7 @@ private fun CaptureButton(
                 onToggleQuickSettings()
             }
         },
-        onStartRecording = {
+        onStartVideoRecording = {
             if (captureButtonUiState is CaptureButtonUiState.Enabled) {
                 when (previewMode) {
                     is PreviewMode.StandardMode -> {
@@ -518,7 +506,7 @@ private fun CaptureButton(
                 }
             }
         },
-        onStopRecording = {
+        onStopVideoRecording = {
             onStopVideoRecording()
         },
         captureButtonUiState = captureButtonUiState,
@@ -528,31 +516,27 @@ private fun CaptureButton(
 
 @Composable
 private fun CaptureModeToggleButton(
-    uiState: CaptureModeUiState.Enabled,
-    onChangeCaptureMode: (CaptureMode) -> Unit,
-    onToggleWhenDisabled: (DisabledReason) -> Unit,
+    uiState: CaptureModeToggleUiState.Visible,
+    onChangeImageFormat: (ImageOutputFormat) -> Unit,
+    onToggleWhenDisabled: (CaptureModeToggleUiState.DisabledReason) -> Unit,
     modifier: Modifier = Modifier
 ) {
     // Captures hdr image (left) when output format is UltraHdr, else captures hdr video (right).
     val initialState =
-        when (uiState.currentSelection) {
-            CaptureMode.IMAGE_ONLY -> ToggleState.Left
-            CaptureMode.VIDEO_ONLY -> ToggleState.Right
-            CaptureMode.STANDARD -> TODO("toggle should not be visible for STANDARD mode")
+        when (uiState.currentMode) {
+            CaptureModeToggleUiState.ToggleMode.CAPTURE_TOGGLE_IMAGE -> ToggleState.Left
+            CaptureModeToggleUiState.ToggleMode.CAPTURE_TOGGLE_VIDEO -> ToggleState.Right
         }
-    val enabled =
-        uiState.videoOnlyCaptureState == SingleSelectableState.Selectable &&
-            uiState.imageOnlyCaptureState == SingleSelectableState.Selectable
     ToggleButton(
-        leftIcon = if (uiState.currentSelection ==
-            CaptureMode.IMAGE_ONLY
+        leftIcon = if (uiState.currentMode ==
+            CaptureModeToggleUiState.ToggleMode.CAPTURE_TOGGLE_IMAGE
         ) {
             rememberVectorPainter(image = Icons.Filled.CameraAlt)
         } else {
             rememberVectorPainter(image = Icons.Outlined.CameraAlt)
         },
-        rightIcon = if (uiState.currentSelection ==
-            CaptureMode.VIDEO_ONLY
+        rightIcon = if (uiState.currentMode ==
+            CaptureModeToggleUiState.ToggleMode.CAPTURE_TOGGLE_VIDEO
         ) {
             rememberVectorPainter(image = Icons.Filled.Videocam)
         } else {
@@ -560,37 +544,21 @@ private fun CaptureModeToggleButton(
         },
         initialState = initialState,
         onToggleStateChanged = {
-            val captureMode = when (it) {
-                ToggleState.Left -> CaptureMode.IMAGE_ONLY
-                ToggleState.Right -> CaptureMode.VIDEO_ONLY
+            val imageFormat = when (it) {
+                ToggleState.Left -> ImageOutputFormat.JPEG_ULTRA_HDR
+                ToggleState.Right -> ImageOutputFormat.JPEG
             }
-            onChangeCaptureMode(captureMode)
+            onChangeImageFormat(imageFormat)
         },
         onToggleWhenDisabled = {
-            val disabledReason: DisabledReason? =
-                (uiState.videoOnlyCaptureState as? SingleSelectableState.Disabled)?.disabledReason
-                    ?: (uiState.imageOnlyCaptureState as? SingleSelectableState.Disabled)
-                        ?.disabledReason
-            disabledReason?.let { onToggleWhenDisabled(it) }
+            check(uiState is CaptureModeToggleUiState.Disabled)
+            onToggleWhenDisabled(uiState.disabledReason)
         },
-        // toggle only enabled when both capture modes are available
-        enabled = enabled,
+        enabled = uiState is CaptureModeToggleUiState.Enabled,
         leftIconDescription =
-        if (enabled) {
-            stringResource(id = R.string.capture_mode_image_capture_content_description)
-        } else {
-            stringResource(
-                id = R.string.capture_mode_image_capture_content_description_disabled
-            )
-        },
+        stringResource(id = R.string.capture_mode_image_capture_content_description),
         rightIconDescription =
-        if (enabled) {
-            stringResource(id = R.string.capture_mode_video_recording_content_description)
-        } else {
-            stringResource(
-                id = R.string.capture_mode_video_recording_content_description_disabled
-            )
-        },
+        stringResource(id = R.string.capture_mode_video_recording_content_description),
         modifier = modifier
     )
 }
@@ -679,18 +647,15 @@ private fun Preview_ControlsBottom() {
             previewUiState = PreviewUiState.Ready(
                 systemConstraints = TYPICAL_SYSTEM_CONSTRAINTS,
                 previewMode = PreviewMode.StandardMode {},
-                captureModeToggleUiState = CaptureModeUiState.Unavailable,
+                captureModeToggleUiState = CaptureModeToggleUiState.Invisible,
                 videoRecordingState = VideoRecordingState.Inactive(),
                 captureButtonUiState = DEFAULT_CAPTURE_BUTTON_STATE
             ),
+            zoomLevel = 1.3f,
             showZoomLevel = true,
             isQuickSettingsOpen = false,
             systemConstraints = TYPICAL_SYSTEM_CONSTRAINTS,
-            videoRecordingState = VideoRecordingState.Inactive(),
-            zoomUiState = ZoomUiState.Enabled(
-                primaryZoomRange = Range(1.0f, 10.0f),
-                primaryZoomRatio = 1.0f
-            )
+            videoRecordingState = VideoRecordingState.Inactive()
         )
     }
 }
@@ -703,14 +668,11 @@ private fun Preview_ControlsBottom_NoZoomLevel() {
             previewUiState = PreviewUiState.Ready(
                 systemConstraints = TYPICAL_SYSTEM_CONSTRAINTS,
                 previewMode = PreviewMode.StandardMode {},
-                captureModeToggleUiState = CaptureModeUiState.Unavailable,
+                captureModeToggleUiState = CaptureModeToggleUiState.Invisible,
                 videoRecordingState = VideoRecordingState.Inactive(),
                 captureButtonUiState = DEFAULT_CAPTURE_BUTTON_STATE
             ),
-            zoomUiState = ZoomUiState.Enabled(
-                primaryZoomRange = Range(1.0f, 10.0f),
-                primaryZoomRatio = 1.0f
-            ),
+            zoomLevel = 1.3f,
             showZoomLevel = false,
             isQuickSettingsOpen = false,
             systemConstraints = TYPICAL_SYSTEM_CONSTRAINTS,
@@ -727,14 +689,11 @@ private fun Preview_ControlsBottom_QuickSettingsOpen() {
             previewUiState = PreviewUiState.Ready(
                 systemConstraints = TYPICAL_SYSTEM_CONSTRAINTS,
                 previewMode = PreviewMode.StandardMode {},
-                captureModeToggleUiState = CaptureModeUiState.Unavailable,
+                captureModeToggleUiState = CaptureModeToggleUiState.Invisible,
                 videoRecordingState = VideoRecordingState.Inactive(),
                 captureButtonUiState = DEFAULT_CAPTURE_BUTTON_STATE
             ),
-            zoomUiState = ZoomUiState.Enabled(
-                primaryZoomRange = Range(1.0f, 10.0f),
-                primaryZoomRatio = 1.0f
-            ),
+            zoomLevel = 1.3f,
             showZoomLevel = true,
             isQuickSettingsOpen = true,
             systemConstraints = TYPICAL_SYSTEM_CONSTRAINTS,
@@ -751,14 +710,11 @@ private fun Preview_ControlsBottom_NoFlippableCamera() {
             previewUiState = PreviewUiState.Ready(
                 systemConstraints = TYPICAL_SYSTEM_CONSTRAINTS,
                 previewMode = PreviewMode.StandardMode {},
-                captureModeToggleUiState = CaptureModeUiState.Unavailable,
+                captureModeToggleUiState = CaptureModeToggleUiState.Invisible,
                 videoRecordingState = VideoRecordingState.Inactive(),
                 captureButtonUiState = DEFAULT_CAPTURE_BUTTON_STATE
             ),
-            zoomUiState = ZoomUiState.Enabled(
-                primaryZoomRange = Range(1.0f, 10.0f),
-                primaryZoomRatio = 1.0f
-            ),
+            zoomLevel = 1.3f,
             showZoomLevel = true,
             isQuickSettingsOpen = false,
             systemConstraints = TYPICAL_SYSTEM_CONSTRAINTS.copy(
@@ -781,14 +737,11 @@ private fun Preview_ControlsBottom_Recording() {
             previewUiState = PreviewUiState.Ready(
                 systemConstraints = TYPICAL_SYSTEM_CONSTRAINTS,
                 previewMode = PreviewMode.StandardMode {},
-                captureModeToggleUiState = CaptureModeUiState.Unavailable,
+                captureModeToggleUiState = CaptureModeToggleUiState.Invisible,
                 videoRecordingState = VideoRecordingState.Active.Recording(0L, .9, 1_000_000_000),
                 captureButtonUiState = DEFAULT_CAPTURE_BUTTON_STATE
             ),
-            zoomUiState = ZoomUiState.Enabled(
-                primaryZoomRange = Range(1.0f, 10.0f),
-                primaryZoomRatio = 1.0f
-            ),
+            zoomLevel = 1.3f,
             showZoomLevel = true,
             isQuickSettingsOpen = false,
             systemConstraints = TYPICAL_SYSTEM_CONSTRAINTS,

@@ -26,23 +26,26 @@ import androidx.camera.core.SurfaceRequest
 import androidx.camera.viewfinder.compose.MutableCoordinateTransformer
 import androidx.camera.viewfinder.core.ImplementationMode
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.EaseOutExpo
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
-import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -94,6 +97,9 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
@@ -112,22 +118,17 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.google.jetpackcamera.core.camera.VideoRecordingState
 import com.google.jetpackcamera.feature.preview.AudioUiState
-import com.google.jetpackcamera.feature.preview.CaptureModeUiState
-import com.google.jetpackcamera.feature.preview.DisabledReason
+import com.google.jetpackcamera.feature.preview.CaptureButtonUiState
 import com.google.jetpackcamera.feature.preview.ElapsedTimeUiState
 import com.google.jetpackcamera.feature.preview.PreviewUiState
 import com.google.jetpackcamera.feature.preview.R
-import com.google.jetpackcamera.feature.preview.SingleSelectableState
 import com.google.jetpackcamera.feature.preview.StabilizationUiState
-import com.google.jetpackcamera.feature.preview.ZoomUiState
 import com.google.jetpackcamera.feature.preview.ui.theme.PreviewPreviewTheme
 import com.google.jetpackcamera.settings.model.AspectRatio
-import com.google.jetpackcamera.settings.model.CameraZoomRatio
 import com.google.jetpackcamera.settings.model.CaptureMode
 import com.google.jetpackcamera.settings.model.LensFacing
 import com.google.jetpackcamera.settings.model.StabilizationMode
 import com.google.jetpackcamera.settings.model.VideoQuality
-import com.google.jetpackcamera.settings.model.ZoomChange
 import kotlin.time.Duration.Companion.nanoseconds
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
@@ -420,19 +421,15 @@ fun PreviewDisplay(
     previewUiState: PreviewUiState.Ready,
     onTapToFocus: (x: Float, y: Float) -> Unit,
     onFlipCamera: () -> Unit,
-    onZoomRatioChange: (CameraZoomRatio) -> Unit,
+    onZoomChange: (Float) -> Unit,
     onRequestWindowColorMode: (Int) -> Unit,
     aspectRatio: AspectRatio,
     surfaceRequest: SurfaceRequest?,
     modifier: Modifier = Modifier
 ) {
     val transformableState = rememberTransformableState(
-        onTransformation = { pinchZoomChange, _, _ ->
-            onZoomRatioChange(
-                CameraZoomRatio(
-                    ZoomChange.Scale(pinchZoomChange)
-                )
-            )
+        onTransformation = { zoomChange, _, _ ->
+            onZoomChange(zoomChange)
         }
     )
 
@@ -710,11 +707,17 @@ fun SettingsNavButton(onNavigateToSettings: () -> Unit, modifier: Modifier = Mod
 }
 
 @Composable
-fun ZoomRatioText(zoomUiState: ZoomUiState.Enabled) {
+fun ZoomScaleText(zoomScale: Float) {
+    val contentAlpha = animateFloatAsState(
+        targetValue = 10f,
+        label = "zoomScaleAlphaAnimation",
+        animationSpec = tween()
+    )
     Text(
         modifier = Modifier
+            .alpha(contentAlpha.value)
             .testTag(ZOOM_RATIO_TAG),
-        text = stringResource(id = R.string.zoom_ratio_text, zoomUiState.primaryZoomRatio ?: 1f)
+        text = stringResource(id = R.string.zoom_scale_text, zoomScale)
     )
 }
 
@@ -739,116 +742,165 @@ fun CurrentCameraIdText(physicalCameraId: String?, logicalCameraId: String?) {
 }
 
 @Composable
-fun CaptureModeDropDown(
+fun CaptureButton(
     modifier: Modifier = Modifier,
-    onSetCaptureMode: (CaptureMode) -> Unit,
-    onDisabledCaptureMode: (DisabledReason) -> Unit,
-    captureModeUiState: CaptureModeUiState.Enabled
+    onCaptureImage: () -> Unit,
+    onStartVideoRecording: () -> Unit,
+    onStopVideoRecording: () -> Unit,
+    onLockVideoRecording: (Boolean) -> Unit,
+    captureButtonUiState: CaptureButtonUiState,
+    captureButtonSize: Float = 80f
 ) {
-    var isExpanded by remember { mutableStateOf(false) }
+    val currentUiState = rememberUpdatedState(captureButtonUiState)
+    var isPressedDown by remember {
+        mutableStateOf(false)
+    }
+    var isLongPressing by remember {
+        mutableStateOf(false)
+    }
 
-    Column(modifier = modifier) {
-        AnimatedVisibility(
-            visible = isExpanded,
-            enter =
-            fadeIn() + expandVertically(expandFrom = Alignment.Top),
-            exit = shrinkVertically(shrinkTowards = Alignment.Bottom)
-        ) {
-            fun onDisabledClick(selectableState: SingleSelectableState): () -> Unit =
-                if (selectableState is SingleSelectableState.Disabled) {
-                    { onDisabledCaptureMode(selectableState.disabledReason) }
-                } else {
-                    { TODO("Enabled should not have disabled click") }
-                }
+    val currentColor = LocalContentColor.current
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onLongPress = {
+                        isLongPressing = true
+                        val uiState = currentUiState.value
+                        if (uiState is CaptureButtonUiState.Enabled.Idle) {
+                            when (uiState.captureMode) {
+                                CaptureMode.STANDARD,
+                                CaptureMode.VIDEO_ONLY -> {
+                                    onStartVideoRecording()
+                                }
 
-            Column {
-                DropDownItem(
-                    text = stringResource(R.string.quick_settings_text_capture_mode_standard),
-                    enabled = captureModeUiState.defaultCaptureState
-                        is SingleSelectableState.Selectable,
-                    onClick = {
-                        onSetCaptureMode(CaptureMode.STANDARD)
-                        isExpanded = false
+                                CaptureMode.IMAGE_ONLY -> {}
+                            }
+                        }
                     },
-                    onDisabledClick = onDisabledClick(captureModeUiState.defaultCaptureState)
-                )
-                DropDownItem(
-                    text = stringResource(R.string.quick_settings_text_capture_mode_image_only),
-                    enabled = captureModeUiState.imageOnlyCaptureState
-                        is SingleSelectableState.Selectable,
-                    onClick = {
-                        onSetCaptureMode(CaptureMode.IMAGE_ONLY)
-                        isExpanded = false
-                    },
-                    onDisabledClick = onDisabledClick(captureModeUiState.imageOnlyCaptureState)
-                )
-                DropDownItem(
-                    text = stringResource(R.string.quick_settings_text_capture_mode_video_only),
-                    enabled = captureModeUiState.videoOnlyCaptureState
-                        is SingleSelectableState.Selectable,
-                    onClick = {
-                        onSetCaptureMode(CaptureMode.VIDEO_ONLY)
-                        isExpanded = false
-                    },
-                    onDisabledClick = onDisabledClick(
-                        captureModeUiState.videoOnlyCaptureState
-                    )
+                    onPress = {
+                        isPressedDown = true
+                        awaitRelease()
+                        isPressedDown = false
+                        isLongPressing = false
+                        val uiState = currentUiState.value
+                        when (uiState) {
+                            // stop recording after button is lifted
+                            is CaptureButtonUiState.Enabled.Recording.PressedRecording -> {
+                                onStopVideoRecording()
+                            }
 
+                            is CaptureButtonUiState.Enabled.Idle,
+                            CaptureButtonUiState.Unavailable -> {
+                            }
+
+                            CaptureButtonUiState.Enabled.Recording.LockedRecording -> {}
+                        }
+                    },
+                    onTap = {
+                        val uiState = currentUiState.value
+                        when (uiState) {
+                            is CaptureButtonUiState.Enabled.Idle -> {
+                                if (!isLongPressing) {
+                                    when (uiState.captureMode) {
+                                        CaptureMode.STANDARD,
+                                        CaptureMode.IMAGE_ONLY -> onCaptureImage()
+
+                                        CaptureMode.VIDEO_ONLY -> {
+                                            onLockVideoRecording(true)
+                                            onStartVideoRecording()
+                                        }
+                                    }
+                                }
+                            }
+                            // stop if locked recording
+                            CaptureButtonUiState.Enabled.Recording.LockedRecording -> {
+                                onStopVideoRecording()
+                            }
+
+                            CaptureButtonUiState.Unavailable,
+                            CaptureButtonUiState.Enabled.Recording.PressedRecording -> {
+                            }
+                        }
+                    }
                 )
             }
-        }
-        // this text displays the current selection
+            .size(captureButtonSize.dp)
+            .border(4.dp, currentColor, CircleShape) // border is the white ring
+    ) {
+        // now we draw center circle
+        val centerShapeSize by animateDpAsState(
+            targetValue = when (val uiState = currentUiState.value) {
+                // inner circle fills white ring when locked
+                CaptureButtonUiState.Enabled.Recording.LockedRecording -> captureButtonSize.dp
+                // larger circle while recording, but not max size
+                CaptureButtonUiState.Enabled.Recording.PressedRecording ->
+                    (captureButtonSize * .7f).dp
+
+                CaptureButtonUiState.Unavailable -> 0.dp
+                is CaptureButtonUiState.Enabled.Idle -> when (uiState.captureMode) {
+                    // no inner circle will be visible on STANDARD
+                    CaptureMode.STANDARD -> 0.dp
+                    // large white circle will be visible on IMAGE_ONLY
+                    CaptureMode.IMAGE_ONLY -> (captureButtonSize * .7f).dp
+                    // small red circle will be visible on VIDEO_ONLY
+                    CaptureMode.VIDEO_ONLY -> (captureButtonSize * .35f).dp
+                }
+            },
+            animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing)
+        )
+
+        // used to fade between red/white in the center of the capture button
+        val animatedColor by animateColorAsState(
+            targetValue = when (val uiState = currentUiState.value) {
+                is CaptureButtonUiState.Enabled.Idle -> when (uiState.captureMode) {
+                    CaptureMode.STANDARD -> Color.White
+                    CaptureMode.IMAGE_ONLY -> Color.White
+                    CaptureMode.VIDEO_ONLY -> Color.Red
+                }
+
+                is CaptureButtonUiState.Enabled.Recording -> Color.Red
+                is CaptureButtonUiState.Unavailable -> Color.Transparent
+            },
+            animationSpec = tween(durationMillis = 500)
+        )
+        // inner circle
         Box(
+            contentAlignment = Alignment.Center,
             modifier = Modifier
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    // removes the greyish background animation that appears when clicking on a clickable
-                    indication = null,
-                    onClick = { isExpanded = !isExpanded }
+                .size(centerShapeSize)
+                .clip(CircleShape)
+                .alpha(
+                    if (isPressedDown &&
+                        currentUiState.value ==
+                        CaptureButtonUiState.Enabled.Idle(CaptureMode.IMAGE_ONLY)
+                    ) {
+                        .5f // transparency to indicate click ONLY on IMAGE_ONLY
+                    } else {
+                        1f // solid alpha the rest of the time
+                    }
                 )
-                .padding(8.dp)
+                .background(animatedColor)
+        ) {}
+        // central "square" stop icon
+        AnimatedVisibility(
+            visible = currentUiState.value is
+                CaptureButtonUiState.Enabled.Recording.LockedRecording,
+            enter = scaleIn(initialScale = .5f) + fadeIn(),
+            exit = fadeOut()
         ) {
-            Text(
-                text = when (captureModeUiState.currentSelection) {
-                    CaptureMode.STANDARD -> stringResource(
-                        R.string.quick_settings_text_capture_mode_standard
-                    )
-
-                    CaptureMode.VIDEO_ONLY -> stringResource(
-                        R.string.quick_settings_text_capture_mode_image_only
-                    )
-
-                    CaptureMode.IMAGE_ONLY -> stringResource(
-                        R.string.quick_settings_text_capture_mode_video_only
-                    )
-                },
-                modifier = Modifier.padding(16.dp)
-            )
+            val smallBoxSize = (captureButtonSize / 5f).dp
+            Canvas(modifier = Modifier) {
+                drawRoundRect(
+                    color = Color.White,
+                    topLeft = Offset(-smallBoxSize.toPx() / 2f, -smallBoxSize.toPx() / 2f),
+                    size = Size(smallBoxSize.toPx(), smallBoxSize.toPx()),
+                    cornerRadius = CornerRadius(smallBoxSize.toPx() * .15f)
+                )
+            }
         }
     }
-}
-
-@Composable
-fun DropDownItem(
-    modifier: Modifier = Modifier,
-    text: String,
-    onClick: () -> Unit = {},
-    onDisabledClick: () -> Unit = {},
-    enabled: Boolean = true,
-    isSelected: Boolean = false
-) {
-    Text(
-        text = text,
-        color = if (enabled) Color.Unspecified else Color.DarkGray,
-        modifier = modifier
-            .clickable(enabled = true, onClick = if (enabled) onClick else onDisabledClick)
-            .apply {
-                if (!enabled) {
-                    alpha(.37f)
-                }
-            }
-            .padding(16.dp)
-    )
 }
 
 enum class ToggleState {
@@ -944,7 +996,7 @@ fun ToggleButton(
             ) {
                 Icon(
                     painter = leftIcon,
-                    contentDescription = "leftIcon",
+                    contentDescription = leftIconDescription,
                     modifier = Modifier.padding(iconPadding),
                     tint = if (!enabled) {
                         disableColor
@@ -956,7 +1008,7 @@ fun ToggleButton(
                 )
                 Icon(
                     painter = rightIcon,
-                    contentDescription = "rightIcon",
+                    contentDescription = rightIconDescription,
                     modifier = Modifier.padding(iconPadding),
                     tint = if (!enabled) {
                         disableColor

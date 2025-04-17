@@ -230,45 +230,45 @@ class ConcurrentCameraTest {
             }
         }
 
-//    @Test
-//    fun concurrentCameraMode_whenEnabled_disablesOtherSettings() =
-//        runConcurrentCameraScenarioTest<MainActivity> {
-//            with(composeTestRule) {
-//                onNodeWithTag(QUICK_SETTINGS_CONCURRENT_CAMERA_MODE_BUTTON)
-//                    .assertExists()
-//                    .assertConcurrentCameraMode(ConcurrentCameraMode.OFF)
-//                    // Enable concurrent camera
-//                    .performClick()
-//                    .assertConcurrentCameraMode(ConcurrentCameraMode.DUAL)
-//
-//                // Assert the capture mode button is disabled
-//                onNodeWithTag(QUICK_SETTINGS_STREAM_CONFIG_BUTTON)
-//                    .assertExists()
-//                    .assert(isNotEnabled())
-//
-//                // Assert the HDR button is disabled
-//                onNodeWithTag(QUICK_SETTINGS_HDR_BUTTON)
-//                    .assertExists()
-//                    .assert(isNotEnabled())
-//
-//                // Exit quick settings
-//                onNodeWithTag(QUICK_SETTINGS_DROP_DOWN)
-//                    .assertExists()
-//                    .performClick()
-//
-//                onNodeWithTag(CAPTURE_MODE_TOGGLE_BUTTON)
-//                    .assertExists()
-//                    .assert(
-//                        stateDescriptionMatches(
-//                            getResString(R.string.capture_mode_video_recording_content_description)
-//                        )
-//                    ).performClick()
-//
-//                waitUntil {
-//                    onNodeWithTag(IMAGE_CAPTURE_UNSUPPORTED_CONCURRENT_CAMERA_TAG).isDisplayed()
-//                }
-//            }
-//        }
+    @Test
+    fun concurrentCameraMode_whenEnabled_disablesOtherSettings() =
+        runConcurrentCameraScenarioTest<MainActivity> {
+            with(composeTestRule) {
+                onNodeWithTag(QUICK_SETTINGS_CONCURRENT_CAMERA_MODE_BUTTON)
+                    .assertExists()
+                    .assertConcurrentCameraMode(ConcurrentCameraMode.OFF)
+                    // Enable concurrent camera
+                    .performClick()
+                    .assertConcurrentCameraMode(ConcurrentCameraMode.DUAL)
+
+                // Assert the capture mode button is disabled
+                onNodeWithTag(QUICK_SETTINGS_STREAM_CONFIG_BUTTON)
+                    .assertExists()
+                    .assert(isNotEnabled())
+
+                // Assert the HDR button is disabled
+                onNodeWithTag(QUICK_SETTINGS_HDR_BUTTON)
+                    .assertExists()
+                    .assert(isNotEnabled())
+
+                // Exit quick settings
+                onNodeWithTag(QUICK_SETTINGS_DROP_DOWN)
+                    .assertExists()
+                    .performClick()
+
+                onNodeWithTag(CAPTURE_MODE_TOGGLE_BUTTON)
+                    .assertExists()
+                    .assert(
+                        stateDescriptionMatches(
+                            getResString(R.string.capture_mode_video_recording_content_description)
+                        )
+                    ).performClick()
+
+                waitUntil {
+                    onNodeWithTag(IMAGE_CAPTURE_UNSUPPORTED_CONCURRENT_CAMERA_TAG).isDisplayed()
+                }
+            }
+        }
 
     @Test
     fun concurrentCameraMode_canRecordVideo() = runConcurrentCameraScenarioTest<MainActivity>(
@@ -345,10 +345,10 @@ class ConcurrentCameraTest {
     private fun SemanticsNode.fetchConcurrentCameraMode(): ConcurrentCameraMode {
         config[SemanticsProperties.ContentDescription].any { description ->
             when (description) {
-                getResString(R.string.quick_settings_description_concurrent_camera_off) ->
+                getResString(R.string.quick_settings_concurrent_camera_off_description) ->
                     return ConcurrentCameraMode.OFF
 
-                getResString(R.string.quick_settings_description_concurrent_camera_dual) ->
+                getResString(R.string.quick_settings_concurrent_camera_dual_description) ->
                     return ConcurrentCameraMode.DUAL
 
                 else -> false

@@ -52,6 +52,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.tracing.Trace
 import com.google.jetpackcamera.core.camera.VideoRecordingState
+import com.google.jetpackcamera.core.common.getLastImageUri
 import com.google.jetpackcamera.feature.preview.quicksettings.QuickSettingsScreenOverlay
 import com.google.jetpackcamera.feature.preview.ui.CameraControlsOverlay
 import com.google.jetpackcamera.feature.preview.ui.PreviewDisplay
@@ -62,7 +63,6 @@ import com.google.jetpackcamera.feature.preview.ui.ZoomLevelDisplayState
 import com.google.jetpackcamera.feature.preview.ui.debouncedOrientationFlow
 import com.google.jetpackcamera.feature.preview.ui.debug.DebugOverlayComponent
 import com.google.jetpackcamera.settings.model.AspectRatio
-import com.google.jetpackcamera.settings.model.CameraZoomRatio
 import com.google.jetpackcamera.settings.model.CaptureMode
 import com.google.jetpackcamera.settings.model.ConcurrentCameraMode
 import com.google.jetpackcamera.settings.model.DEFAULT_CAMERA_APP_SETTINGS
@@ -82,7 +82,7 @@ private const val TAG = "PreviewScreen"
 @Composable
 fun PreviewScreen(
     onNavigateToSettings: () -> Unit,
-    onNavigateToPostCapture: () -> Unit,
+    onNavigateToPostCapture: (uri: Uri?) -> Unit,
     previewMode: PreviewMode,
     isDebugMode: Boolean,
     modifier: Modifier = Modifier,
@@ -143,15 +143,14 @@ fun PreviewScreen(
                 onClearUiScreenBrightness = viewModel.screenFlash::setClearUiScreenBrightness,
                 onSetLensFacing = viewModel::setLensFacing,
                 onTapToFocus = viewModel::tapToFocus,
-                onChangeZoomRatio = viewModel::changeZoomRatio,
-                onSetCaptureMode = viewModel::setCaptureMode,
+                onChangeZoomScale = viewModel::setZoomScale,
                 onChangeFlash = viewModel::setFlash,
                 onChangeAspectRatio = viewModel::setAspectRatio,
                 onSetStreamConfig = viewModel::setStreamConfig,
                 onChangeDynamicRange = viewModel::setDynamicRange,
                 onChangeConcurrentCameraMode = viewModel::setConcurrentCameraMode,
                 onChangeImageFormat = viewModel::setImageFormat,
-                onDisabledCaptureMode = viewModel::enqueueDisabledHdrToggleSnackBar,
+                onToggleWhenDisabled = viewModel::showSnackBarForDisabledHdrToggle,
                 onToggleQuickSettings = viewModel::toggleQuickSettings,
                 onToggleDebugOverlay = viewModel::toggleDebugOverlay,
                 onSetPause = viewModel::setPaused,
@@ -164,11 +163,15 @@ fun PreviewScreen(
                 onRequestWindowColorMode = onRequestWindowColorMode,
                 onSnackBarResult = viewModel::onSnackBarResult,
                 isDebugMode = isDebugMode,
-                onImageWellClick = onNavigateToPostCapture
+                onImageWellClick = { uri -> onNavigateToPostCapture(uri) }
             )
 
+            // TODO(yasith): Remove and use ImageRepository after implementing
             LaunchedEffect(Unit) {
-                viewModel.updateLastCapturedMedia()
+                val lastCapturedImageUri = getLastImageUri(context)
+                lastCapturedImageUri?.let { uri ->
+                    viewModel.updateLastCapturedImageUri(uri)
+                }
             }
         }
     }
@@ -183,17 +186,16 @@ private fun ContentScreen(
     modifier: Modifier = Modifier,
     onNavigateToSettings: () -> Unit = {},
     onClearUiScreenBrightness: (Float) -> Unit = {},
-    onSetCaptureMode: (CaptureMode) -> Unit = {},
     onSetLensFacing: (newLensFacing: LensFacing) -> Unit = {},
     onTapToFocus: (x: Float, y: Float) -> Unit = { _, _ -> },
-    onChangeZoomRatio: (CameraZoomRatio) -> Unit = {},
+    onChangeZoomScale: (Float) -> Unit = {},
     onChangeFlash: (FlashMode) -> Unit = {},
     onChangeAspectRatio: (AspectRatio) -> Unit = {},
     onSetStreamConfig: (StreamConfig) -> Unit = {},
     onChangeDynamicRange: (DynamicRange) -> Unit = {},
     onChangeConcurrentCameraMode: (ConcurrentCameraMode) -> Unit = {},
     onChangeImageFormat: (ImageOutputFormat) -> Unit = {},
-    onDisabledCaptureMode: (DisabledReason) -> Unit = {},
+    onToggleWhenDisabled: (CaptureModeToggleUiState.DisabledReason) -> Unit = {},
     onToggleQuickSettings: () -> Unit = {},
     onToggleDebugOverlay: () -> Unit = {},
     onSetPause: (Boolean) -> Unit = {},
@@ -215,7 +217,7 @@ private fun ContentScreen(
     onRequestWindowColorMode: (Int) -> Unit = {},
     onSnackBarResult: (String) -> Unit = {},
     isDebugMode: Boolean = false,
-    onImageWellClick: () -> Unit = {}
+    onImageWellClick: (uri: Uri?) -> Unit = {}
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     Scaffold(
@@ -242,7 +244,7 @@ private fun ContentScreen(
                 previewUiState = previewUiState,
                 onFlipCamera = onFlipCamera,
                 onTapToFocus = onTapToFocus,
-                onZoomRatioChange = onChangeZoomRatio,
+                onZoomChange = onChangeZoomScale,
                 aspectRatio = previewUiState.currentCameraSettings.aspectRatio,
                 surfaceRequest = surfaceRequest,
                 onRequestWindowColorMode = onRequestWindowColorMode
@@ -252,7 +254,7 @@ private fun ContentScreen(
                 modifier = Modifier,
                 previewUiState = previewUiState,
                 isOpen = previewUiState.quickSettingsIsOpen,
-                toggleQuickSettings = onToggleQuickSettings,
+                toggleIsOpen = onToggleQuickSettings,
                 currentCameraSettings = previewUiState.currentCameraSettings,
                 onLensFaceClick = onSetLensFacing,
                 onFlashModeClick = onChangeFlash,
@@ -260,22 +262,19 @@ private fun ContentScreen(
                 onStreamConfigClick = onSetStreamConfig,
                 onDynamicRangeClick = onChangeDynamicRange,
                 onImageOutputFormatClick = onChangeImageFormat,
-                onConcurrentCameraModeClick = onChangeConcurrentCameraMode,
-                onCaptureModeClick = onSetCaptureMode
+                onConcurrentCameraModeClick = onChangeConcurrentCameraMode
             )
             // relative-grid style overlay on top of preview display
             CameraControlsOverlay(
                 previewUiState = previewUiState,
                 onNavigateToSettings = onNavigateToSettings,
-                onSetCaptureMode = onSetCaptureMode,
                 onFlipCamera = onFlipCamera,
                 onChangeFlash = onChangeFlash,
                 onToggleAudio = onToggleAudio,
-                onSetZoom = onChangeZoomRatio,
                 onToggleQuickSettings = onToggleQuickSettings,
                 onToggleDebugOverlay = onToggleDebugOverlay,
                 onChangeImageFormat = onChangeImageFormat,
-                onDisabledCaptureMode = onDisabledCaptureMode,
+                onToggleWhenDisabled = onToggleWhenDisabled,
                 onSetPause = onSetPause,
                 onCaptureImageWithUri = onCaptureImageWithUri,
                 onStartVideoRecording = onStartVideoRecording,
@@ -288,7 +287,7 @@ private fun ContentScreen(
             DebugOverlayComponent(
                 toggleIsOpen = onToggleDebugOverlay,
                 previewUiState = previewUiState,
-                onChangeZoomRatio = onChangeZoomRatio
+                onChangeZoomScale = onChangeZoomScale
             )
 
             // displays toast when there is a message to show
@@ -300,11 +299,10 @@ private fun ContentScreen(
                 )
             }
 
-            val snackBarData = previewUiState.snackBarQueue.peek()
-            if (snackBarData != null) {
+            if (previewUiState.snackBarToShow != null) {
                 TestableSnackbar(
-                    modifier = Modifier.testTag(snackBarData.testTag),
-                    snackbarToShow = snackBarData,
+                    modifier = Modifier.testTag(previewUiState.snackBarToShow.testTag),
+                    snackbarToShow = previewUiState.snackBarToShow,
                     snackbarHostState = snackbarHostState,
                     onSnackbarResult = onSnackBarResult
                 )
@@ -417,7 +415,7 @@ private val FAKE_PREVIEW_UI_STATE_READY = PreviewUiState.Ready(
     videoRecordingState = VideoRecordingState.Inactive(),
     systemConstraints = TYPICAL_SYSTEM_CONSTRAINTS,
     previewMode = PreviewMode.StandardMode {},
-    captureModeToggleUiState = CaptureModeUiState.Unavailable
+    captureModeToggleUiState = CaptureModeToggleUiState.Invisible
 )
 
 private val FAKE_PREVIEW_UI_STATE_PRESSED_RECORDING = FAKE_PREVIEW_UI_STATE_READY.copy(
