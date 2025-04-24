@@ -24,4 +24,7 @@ android_library {
     kotlincflags: [
         "-Xcontext-receivers",
     ],
+    apex_available: [
+        "com.android.mediaprovider",
+    ],
 }
