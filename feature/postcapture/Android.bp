@@ -14,7 +14,6 @@ package {
 //        "androidx.compose.ui_ui-tooling-preview",
 //        "androidx.hilt_hilt-navigation-compose",
 //        "androidx.compose.ui_ui-tooling",
-//        "kotlin-reflect",
 //        "kotlinx_coroutines_guava",
 //        "jetpack-camera-app_core_common",
 //        "jetpack-camera-app_data_media",

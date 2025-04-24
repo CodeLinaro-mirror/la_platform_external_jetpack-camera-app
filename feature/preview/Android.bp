@@ -19,7 +19,6 @@ android_library {
         "hilt_android",
         "androidx.hilt_hilt-navigation-compose",
         "androidx.compose.ui_ui-tooling",
-        "kotlin-reflect",
         "kotlinx_coroutines_guava",
         "androidx.datastore_datastore",
         "libprotobuf-java-lite",
