@@ -9,8 +9,8 @@ java_library {
     installable: false,
     proto: {
         type: "lite",
-	canonical_path_from_root: false,
-	local_include_dirs: ["src/main/proto"],
+        canonical_path_from_root: false,
+        local_include_dirs: ["src/main/proto"],
     },
     srcs: [
         "src/main/proto/**/*.proto",
@@ -20,9 +20,11 @@ java_library {
 
     static_libs: [
         "libprotobuf-java-lite",
-    ]
+    ],
+    apex_available: [
+        "com.android.mediaprovider",
+    ],
 }
-
 
 android_library {
     name: "jetpack-camera-app_data_settings",
@@ -32,12 +34,14 @@ android_library {
     static_libs: [
         "hilt_android",
         "kotlinx-coroutines-core",
-	"androidx.datastore_datastore",
-	"jetpack-camera-app-protos-java-gen",
-	"libprotobuf-java-lite",
+        "androidx.datastore_datastore",
+        "jetpack-camera-app-protos-java-gen",
+        "libprotobuf-java-lite",
     ],
     sdk_version: "34",
     min_sdk_version: "21",
-    manifest:"src/main/AndroidManifest.xml",
+    manifest: "src/main/AndroidManifest.xml",
+    apex_available: [
+        "com.android.mediaprovider",
+    ],
 }
-

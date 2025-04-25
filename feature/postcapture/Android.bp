@@ -21,4 +21,7 @@ package {
 //    sdk_version: "34",
 //    min_sdk_version: "21",
 //    manifest: "src/main/AndroidManifest.xml",
+//    apex_available: [
+//        "com.android.mediaprovider",
+//    ],
 //}
