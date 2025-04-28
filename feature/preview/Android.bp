@@ -29,6 +29,7 @@ android_library {
         "jetpack-camera-app_data_settings",
         "jetpack-camera-app_core_camera",
         "jetpack-camera-app_core_common",
+        "jetpack-camera-app_data_media",
         "androidx.compose.ui_ui-tooling",
 
     ],
