@@ -30,6 +30,7 @@ android_library {
         "jetpack-camera-app_core_common",
         "jetpack-camera-app_data_media",
         "androidx.compose.ui_ui-tooling",
+        "accompanist-permissions",
     ],
     sdk_version: "34",
     min_sdk_version: "21",
