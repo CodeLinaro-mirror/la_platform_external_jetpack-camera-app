@@ -35,12 +35,12 @@ import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.google.jetpackcamera.BuildConfig
 import com.google.jetpackcamera.feature.postcapture.PostCaptureScreen
+import com.google.jetpackcamera.feature.preview.PreviewMode
 import com.google.jetpackcamera.feature.preview.PreviewScreen
 import com.google.jetpackcamera.permissions.PermissionsScreen
 import com.google.jetpackcamera.settings.SettingsScreen
 import com.google.jetpackcamera.settings.VersionInfoHolder
 import com.google.jetpackcamera.settings.model.DebugSettings
-import com.google.jetpackcamera.settings.model.ExternalCaptureMode
 import com.google.jetpackcamera.ui.Routes.PERMISSIONS_ROUTE
 import com.google.jetpackcamera.ui.Routes.POST_CAPTURE_ROUTE
 import com.google.jetpackcamera.ui.Routes.PREVIEW_ROUTE
@@ -50,14 +50,14 @@ import com.google.jetpackcamera.ui.Routes.SETTINGS_ROUTE
 fun JcaApp(
     openAppSettings: () -> Unit,
     /*TODO(b/306236646): remove after still capture*/
-    externalCaptureMode: ExternalCaptureMode,
+    previewMode: PreviewMode,
     modifier: Modifier = Modifier,
     debugSettings: DebugSettings,
     onRequestWindowColorMode: (Int) -> Unit,
     onFirstFrameCaptureCompleted: () -> Unit
 ) {
     JetpackCameraNavHost(
-        externalCaptureMode = externalCaptureMode,
+        previewMode = previewMode,
         debugSettings = debugSettings,
         onOpenAppSettings = openAppSettings,
         onRequestWindowColorMode = onRequestWindowColorMode,
@@ -70,7 +70,7 @@ fun JcaApp(
 @Composable
 private fun JetpackCameraNavHost(
     modifier: Modifier = Modifier,
-    externalCaptureMode: ExternalCaptureMode,
+    previewMode: PreviewMode,
     debugSettings: DebugSettings,
     onOpenAppSettings: () -> Unit,
     onRequestWindowColorMode: (Int) -> Unit,
@@ -84,11 +84,9 @@ private fun JetpackCameraNavHost(
     ) {
         composable(PERMISSIONS_ROUTE) {
             PermissionsScreen(
-                shouldRequestReadWriteStoragePermission = externalCaptureMode is
-                    ExternalCaptureMode.StandardMode &&
+                shouldRequestReadWriteStoragePermission = previewMode is PreviewMode.StandardMode &&
                     Build.VERSION.SDK_INT <= Build.VERSION_CODES.P,
-                shouldRequestAudioPermission = externalCaptureMode
-                    is ExternalCaptureMode.StandardMode,
+                shouldRequestAudioPermission = previewMode is PreviewMode.StandardMode,
                 onAllPermissionsGranted = {
                     // Pop off the permissions screen
                     navController.navigate(PREVIEW_ROUTE) {
@@ -129,7 +127,7 @@ private fun JetpackCameraNavHost(
                 onNavigateToPostCapture = { navController.navigate(POST_CAPTURE_ROUTE) },
                 onRequestWindowColorMode = onRequestWindowColorMode,
                 onFirstFrameCaptureCompleted = onFirstFrameCaptureCompleted,
-                externalCaptureMode = externalCaptureMode,
+                previewMode = previewMode,
                 debugSettings = debugSettings
             )
         }
