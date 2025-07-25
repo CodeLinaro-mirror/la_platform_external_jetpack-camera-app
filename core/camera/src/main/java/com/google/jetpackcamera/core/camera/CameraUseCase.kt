@@ -154,11 +154,10 @@ interface CameraUseCase {
 sealed interface VideoRecordingState {
 
     /**
-     * Indicates that a [PendingRecording][androidx.camera.video.PendingRecording] is about to start.
+     * [PendingRecording][androidx.camera.video.PendingRecording] has not yet started but is about to.
      * This state may be used as a signal to start processes just before the recording actually starts.
      */
-    data class Starting(val initialRecordingSettings: InitialRecordingSettings? = null) :
-        VideoRecordingState
+    data object Starting : VideoRecordingState
 
     /**
      * Camera is not currently recording a video

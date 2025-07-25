@@ -38,7 +38,7 @@ fun CaptureButtonUiState.Companion.from(
             CaptureButtonUiState.Enabled.Recording.PressedRecording
         }
 
-    is VideoRecordingState.Starting ->
+    VideoRecordingState.Starting ->
         CaptureButtonUiState
             .Enabled.Idle(captureMode = cameraAppSettings.captureMode)
 }

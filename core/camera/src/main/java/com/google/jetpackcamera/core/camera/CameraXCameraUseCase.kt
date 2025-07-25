@@ -64,7 +64,7 @@ import com.google.jetpackcamera.settings.model.StabilizationMode
 import com.google.jetpackcamera.settings.model.StreamConfig
 import com.google.jetpackcamera.settings.model.SystemConstraints
 import com.google.jetpackcamera.settings.model.VideoQuality
-import com.google.jetpackcamera.settings.model.ZoomStrategy
+import com.google.jetpackcamera.settings.model.ZoomChange
 import com.google.jetpackcamera.settings.model.forCurrentLens
 import dagger.hilt.android.scopes.ViewModelScoped
 import java.io.File
@@ -538,6 +538,7 @@ constructor(
         shouldUseUri: Boolean,
         onVideoRecord: (CameraUseCase.OnVideoRecordEvent) -> Unit
     ) {
+        val initialRecordSettings = currentSettings.value
         if (shouldUseUri && videoCaptureUri == null) {
             val e = RuntimeException("Null Uri is provided.")
             Log.d(TAG, "takePicture onError: $e")
@@ -549,7 +550,20 @@ constructor(
                 shouldUseUri,
                 currentSettings.value?.maxVideoDurationMillis
                     ?: UNLIMITED_VIDEO_DURATION,
-                onVideoRecord = onVideoRecord
+                onVideoRecord = onVideoRecord,
+
+                onRestoreSettings = {
+                    // restore settings to be called after video recording completes.
+                    // this resets certain settings to their values pre-recording
+                    initialRecordSettings?.let {
+                        currentSettings.update { old ->
+                            old?.copy(
+                                cameraLensFacing = initialRecordSettings.cameraLensFacing,
+                                defaultZoomRatios = initialRecordSettings.defaultZoomRatios
+                            )
+                        }
+                    }
+                }
             )
         )
     }
@@ -646,28 +660,26 @@ constructor(
     ): CameraAppSettings {
         val lensFacing = when (newZoomState.changeType.lensToZoom) {
             LensToZoom.PRIMARY -> cameraLensFacing
-
             LensToZoom.SECONDARY -> {
-                cameraLensFacing.flip()
+                val newLens = cameraLensFacing.flip()
+                check(systemConstraints.perLensConstraints[newLens] != null) {
+                    "Device does not have a secondary camera"
+                }
+                newLens
             }
         }
-        // no-op if lens doesn't exist
-        if (systemConstraints.perLensConstraints[lensFacing] == null) {
-            return this
-        }
-
         return systemConstraints.perLensConstraints[lensFacing]?.let { constraints ->
             val newZoomRatio = constraints.supportedZoomRange?.let { zoomRatioRange ->
                 when (val change = newZoomState.changeType) {
-                    is ZoomStrategy.Absolute -> change.value
-                    is ZoomStrategy.Scale -> (
+                    is ZoomChange.Absolute -> change.value
+                    is ZoomChange.Scale -> (
                         this.defaultZoomRatios
                             [lensFacing]
                             ?: 1.0f
                         ) *
                         change.value
 
-                    is ZoomStrategy.Increment -> {
+                    is ZoomChange.Increment -> {
                         (this.defaultZoomRatios[lensFacing] ?: 1.0f) + change.value
                     }
                 }.coerceIn(zoomRatioRange.lower, zoomRatioRange.upper)
@@ -702,7 +714,6 @@ constructor(
         CaptureMode.STANDARD -> this
         CaptureMode.IMAGE_ONLY ->
             this.copy(aspectRatio = AspectRatio.THREE_FOUR)
-
         CaptureMode.VIDEO_ONLY ->
             this.copy(aspectRatio = AspectRatio.NINE_SIXTEEN)
     }
