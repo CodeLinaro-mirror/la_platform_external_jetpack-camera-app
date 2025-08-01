@@ -22,7 +22,6 @@ import com.google.jetpackcamera.settings.model.CameraConstraints
 import com.google.jetpackcamera.settings.model.CaptureMode
 import com.google.jetpackcamera.settings.model.ConcurrentCameraMode
 import com.google.jetpackcamera.settings.model.DynamicRange
-import com.google.jetpackcamera.settings.model.ExternalCaptureMode
 import com.google.jetpackcamera.settings.model.ImageOutputFormat
 import com.google.jetpackcamera.settings.model.LensFacing
 import com.google.jetpackcamera.settings.model.StreamConfig
@@ -43,7 +42,7 @@ fun CaptureModeToggleUiState.Companion.from(
     systemConstraints: SystemConstraints,
     cameraAppSettings: CameraAppSettings,
     cameraState: CameraState,
-    externalCaptureMode: ExternalCaptureMode
+    previewMode: PreviewMode
 ): CaptureModeToggleUiState =
     if (cameraState.videoRecordingState !is VideoRecordingState.Inactive) {
         CaptureModeToggleUiState.Unavailable
@@ -53,7 +52,7 @@ fun CaptureModeToggleUiState.Companion.from(
         val availableCaptureModes = getAvailableCaptureModes(
             systemConstraints,
             cameraAppSettings,
-            externalCaptureMode
+            previewMode
         )
         // Find the IMAGE_ONLY and VIDEO_ONLY states
         val imageOnlyState = availableCaptureModes.first { item ->
@@ -80,12 +79,12 @@ fun CaptureModeToggleUiState.Companion.from(
 fun CaptureModeUiState.Companion.from(
     systemConstraints: SystemConstraints,
     cameraAppSettings: CameraAppSettings,
-    externalCaptureMode: ExternalCaptureMode
+    previewMode: PreviewMode
 ): CaptureModeUiState {
     val availableCaptureModes = getAvailableCaptureModes(
         systemConstraints,
         cameraAppSettings,
-        externalCaptureMode
+        previewMode
     )
     return CaptureModeUiState.Available(
         selectedCaptureMode = cameraAppSettings.captureMode,
@@ -98,10 +97,10 @@ private fun getSupportedCaptureModes(
     isHdrOn: Boolean,
     currentHdrDynamicRangeSupported: Boolean,
     currentHdrImageFormatSupported: Boolean,
-    externalCaptureMode: ExternalCaptureMode
+    previewMode: PreviewMode
 ): List<CaptureMode> = if (
-    externalCaptureMode !is ExternalCaptureMode.ExternalImageCaptureMode &&
-    externalCaptureMode !is ExternalCaptureMode.ExternalVideoCaptureMode &&
+    previewMode != PreviewMode.EXTERNAL_IMAGE_CAPTURE &&
+    previewMode != PreviewMode.EXTERNAL_VIDEO_CAPTURE &&
     currentHdrDynamicRangeSupported &&
     currentHdrImageFormatSupported &&
     cameraAppSettings.concurrentCameraMode == ConcurrentCameraMode.OFF
@@ -114,7 +113,7 @@ private fun getSupportedCaptureModes(
     }
 } else if (
     cameraAppSettings.concurrentCameraMode == ConcurrentCameraMode.OFF &&
-    externalCaptureMode is ExternalCaptureMode.ExternalImageCaptureMode ||
+    previewMode == PreviewMode.EXTERNAL_IMAGE_CAPTURE ||
     cameraAppSettings.imageFormat == ImageOutputFormat.JPEG_ULTRA_HDR
 ) {
     listOf(CaptureMode.IMAGE_ONLY)
@@ -125,7 +124,7 @@ private fun getSupportedCaptureModes(
 private fun getAvailableCaptureModes(
     systemConstraints: SystemConstraints,
     cameraAppSettings: CameraAppSettings,
-    externalCaptureMode: ExternalCaptureMode
+    previewMode: PreviewMode
 ): List<SingleSelectableUiState<CaptureMode>> {
     val cameraConstraints: CameraConstraints? = systemConstraints.forCurrentLens(
         cameraAppSettings
@@ -152,7 +151,7 @@ private fun getAvailableCaptureModes(
         isHdrOn,
         currentHdrDynamicRangeSupported,
         currentHdrImageFormatSupported,
-        externalCaptureMode
+        previewMode
     )
     // if all capture modes are supported, return capturemodeuistate
     if (supportedCaptureModes.containsAll(ORDERED_UI_SUPPORTED_CAPTURE_MODES)) {
@@ -175,7 +174,7 @@ private fun getAvailableCaptureModes(
                     cameraAppSettings.cameraLensFacing,
                     cameraAppSettings.streamConfig,
                     cameraAppSettings.concurrentCameraMode,
-                    externalCaptureMode = externalCaptureMode
+                    previewMode = previewMode
                 )
             return listOf(
                 SingleSelectableUiState.SelectableUi(CaptureMode.IMAGE_ONLY),
@@ -198,7 +197,7 @@ private fun getAvailableCaptureModes(
                     cameraAppSettings.cameraLensFacing,
                     cameraAppSettings.streamConfig,
                     cameraAppSettings.concurrentCameraMode,
-                    externalCaptureMode = externalCaptureMode
+                    previewMode = previewMode
                 )
             return listOf(
                 SingleSelectableUiState.SelectableUi(CaptureMode.VIDEO_ONLY),
@@ -232,11 +231,11 @@ private fun getCaptureModeDisabledReason(
     currentLensFacing: LensFacing,
     currentStreamConfig: StreamConfig,
     concurrentCameraMode: ConcurrentCameraMode,
-    externalCaptureMode: ExternalCaptureMode
+    previewMode: PreviewMode
 ): DisabledReason {
     when (disabledCaptureMode) {
         CaptureMode.IMAGE_ONLY -> {
-            if (externalCaptureMode is ExternalCaptureMode.ExternalVideoCaptureMode) {
+            if (previewMode == PreviewMode.EXTERNAL_VIDEO_CAPTURE) {
                 return DisabledReason
                     .IMAGE_CAPTURE_EXTERNAL_UNSUPPORTED
             }
@@ -277,8 +276,8 @@ private fun getCaptureModeDisabledReason(
         }
 
         CaptureMode.VIDEO_ONLY -> {
-            if (externalCaptureMode is ExternalCaptureMode.ExternalImageCaptureMode ||
-                externalCaptureMode is ExternalCaptureMode.ExternalMultipleImageCaptureMode
+            if (previewMode == PreviewMode.EXTERNAL_IMAGE_CAPTURE ||
+                previewMode == PreviewMode.EXTERNAL_MULTIPLE_IMAGE_CAPTURE
             ) {
                 return DisabledReason
                     .VIDEO_CAPTURE_EXTERNAL_UNSUPPORTED

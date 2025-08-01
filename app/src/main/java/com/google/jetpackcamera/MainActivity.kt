@@ -58,9 +58,10 @@ import androidx.tracing.Trace
 import com.google.jetpackcamera.MainActivityUiState.Loading
 import com.google.jetpackcamera.MainActivityUiState.Success
 import com.google.jetpackcamera.core.common.traceFirstFrameMainActivity
+import com.google.jetpackcamera.feature.preview.PreviewMode
+import com.google.jetpackcamera.feature.preview.PreviewViewModel
 import com.google.jetpackcamera.settings.model.DarkMode
 import com.google.jetpackcamera.settings.model.DebugSettings
-import com.google.jetpackcamera.settings.model.ExternalCaptureMode
 import com.google.jetpackcamera.settings.model.LensFacing
 import com.google.jetpackcamera.ui.JcaApp
 import com.google.jetpackcamera.ui.theme.JetpackCameraTheme
@@ -136,7 +137,7 @@ class MainActivity : Hilt_MainActivity() {
                             color = MaterialTheme.colorScheme.background
                         ) {
                             JcaApp(
-                                externalCaptureMode = getPreviewMode(),
+                                previewMode = getPreviewMode(),
                                 debugSettings = debugSettings,
                                 openAppSettings = ::openAppSettings,
                                 onRequestWindowColorMode = { colorMode ->
@@ -180,9 +181,9 @@ class MainActivity : Hilt_MainActivity() {
                 }
         )
 
-    private fun getStandardMode(): ExternalCaptureMode.StandardMode {
-        return ExternalCaptureMode.StandardMode { event ->
-            if (event is ExternalCaptureMode.ImageCaptureEvent.ImageSaved) {
+    private fun getStandardMode(): PreviewMode.StandardMode {
+        return PreviewMode.StandardMode { event ->
+            if (event is PreviewViewModel.ImageCaptureEvent.ImageSaved) {
                 @Suppress("DEPRECATION")
                 val intent = Intent(android.hardware.Camera.ACTION_NEW_PICTURE)
                 intent.setData(event.savedUri)
@@ -212,13 +213,13 @@ class MainActivity : Hilt_MainActivity() {
         }
     }
 
-    private fun getPreviewMode(): ExternalCaptureMode {
+    private fun getPreviewMode(): PreviewMode {
         return intent?.action?.let { action ->
             when (action) {
                 MediaStore.ACTION_IMAGE_CAPTURE ->
-                    ExternalCaptureMode.ExternalImageCaptureMode(getExternalCaptureUri()) { event ->
+                    PreviewMode.ExternalImageCaptureMode(getExternalCaptureUri()) { event ->
                         Log.d(TAG, "onImageCapture, event: $event")
-                        if (event is ExternalCaptureMode.ImageCaptureEvent.ImageSaved) {
+                        if (event is PreviewViewModel.ImageCaptureEvent.ImageSaved) {
                             val resultIntent = Intent()
                             resultIntent.putExtra(MediaStore.EXTRA_OUTPUT, event.savedUri)
                             setResult(RESULT_OK, resultIntent)
@@ -228,9 +229,9 @@ class MainActivity : Hilt_MainActivity() {
                     }
 
                 MediaStore.ACTION_VIDEO_CAPTURE ->
-                    ExternalCaptureMode.ExternalVideoCaptureMode(getExternalCaptureUri()) { event ->
+                    PreviewMode.ExternalVideoCaptureMode(getExternalCaptureUri()) { event ->
                         Log.d(TAG, "onVideoCapture, event: $event")
-                        if (event is ExternalCaptureMode.VideoCaptureEvent.VideoSaved) {
+                        if (event is PreviewViewModel.VideoCaptureEvent.VideoSaved) {
                             val resultIntent = Intent()
                             resultIntent.putExtra(MediaStore.EXTRA_OUTPUT, event.savedUri)
                             setResult(RESULT_OK, resultIntent)
@@ -242,15 +243,15 @@ class MainActivity : Hilt_MainActivity() {
                 MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA -> {
                     val uriList: List<Uri>? = getMultipleExternalCaptureUri()
                     val pictureTakenUriList: ArrayList<String?> = arrayListOf()
-                    ExternalCaptureMode.ExternalMultipleImageCaptureMode(
+                    PreviewMode.ExternalMultipleImageCaptureMode(
                         uriList
-                    ) { event: ExternalCaptureMode.ImageCaptureEvent, uriIndex: Int ->
+                    ) { event: PreviewViewModel.ImageCaptureEvent, uriIndex: Int ->
                         Log.d(TAG, "onMultipleImageCapture, event: $event")
                         if (uriList == null) {
                             when (event) {
-                                is ExternalCaptureMode.ImageCaptureEvent.ImageSaved ->
+                                is PreviewViewModel.ImageCaptureEvent.ImageSaved ->
                                     pictureTakenUriList.add(event.savedUri.toString())
-                                is ExternalCaptureMode.ImageCaptureEvent.ImageCaptureError ->
+                                is PreviewViewModel.ImageCaptureEvent.ImageCaptureError ->
                                     pictureTakenUriList.add(event.exception.toString())
                             }
                             val resultIntent = Intent()
