@@ -36,7 +36,8 @@ core.workflow(
       "**/test/AndroidManifest.xml",
       "**/AndroidTest.xml",
       "TEST_MAPPING",
-      "app/src/main/java/com/google/jetpackcamera/BuildConfig.kt"
+      "app/src/main/java/com/google/jetpackcamera/BuildConfig.kt",
+      "jca_its_constants_sync.py",
     ],
   ),
   authoring = authoring.pass_thru(
