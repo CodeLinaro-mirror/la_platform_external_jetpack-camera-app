@@ -14,3 +14,36 @@ subdirs = [
     "feature",
 
 ]
+
+filegroup {
+    name: "jca_its_test_files",
+    srcs: [
+        "**/*.kt",
+        "**/*.xml",
+    ],
+    exclude_srcs: [
+        "**/AndroidTest.xml",
+        "**/AndroidManifest.xml",
+    ],
+}
+
+python_test_host {
+    name: "jetpack-camera-app-its-constants-sync-test",
+    srcs: [
+        "jca_its_constants_sync.py",
+    ],
+    data: [
+        "//cts/apps/CameraITS:ui_interaction_utils_src_as_txt",
+        ":jca_its_test_files",
+    ],
+    main: "jca_its_constants_sync.py",
+    test_options: {
+        unit_test: true,
+    },
+    version: {
+        py3: {
+            embedded_launcher: true,
+        },
+    },
+    test_suites: ["general-tests"],
+}
