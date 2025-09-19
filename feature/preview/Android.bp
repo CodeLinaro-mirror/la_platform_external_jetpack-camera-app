@@ -14,6 +14,7 @@ android_library {
         "androidx.compose.ui_ui-tooling-preview",
         "androidx.tracing_tracing-ktx",
         "hilt_android",
+        "androidx.navigation_navigation-compose",
         "androidx.hilt_hilt-navigation-compose",
         "androidx.compose.ui_ui-tooling",
         "kotlinx_coroutines_guava",
