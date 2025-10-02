@@ -13,6 +13,7 @@ android_library {
         "jetpack-camera-app_data_media",
         "jetpack-camera-app_data_settings",
         "jetpack-camera-app_core_camera",
+        "jetpack-camera-app_core_model",
         "jetpack-camera-app_ui_uistate",
         "jetpack-camera-app_ui_uistateadapter",
         "jetpack-camera-app_ui_uistate_capture",

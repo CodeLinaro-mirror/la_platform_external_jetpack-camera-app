@@ -14,6 +14,7 @@ android_test {
         "androidx.compose.runtime_runtime",
         "androidx.compose.ui_ui-test-junit4",
         "androidx.compose.ui_ui-test-manifest",
+        "jetpack-camera-app_core_model",
         "jetpack-camera-app_ui_components_capture",
     ],
     instrumentation_for: "jetpack-camera-app_ui_components_capture",
