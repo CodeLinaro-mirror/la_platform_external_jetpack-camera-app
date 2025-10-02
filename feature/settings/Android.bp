@@ -22,6 +22,7 @@ android_library {
         "kotlinx_coroutines_guava",
         "androidx.datastore_datastore",
         "libprotobuf-java-lite",
+        "jetpack-camera-app_core_model",
         "jetpack-camera-app_data_settings",
         "androidx.hilt_hilt-navigation-compose",
 

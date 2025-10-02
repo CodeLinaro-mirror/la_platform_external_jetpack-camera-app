@@ -18,6 +18,7 @@ android_library {
         "androidx.compose.ui_ui-tooling-preview",
         "androidx.compose.ui_ui-tooling",
         "androidx.core_core",
+        "androidx.navigation_navigation-compose",
         "androidx.hilt_hilt-navigation-compose",
         "hilt_android",
     ],

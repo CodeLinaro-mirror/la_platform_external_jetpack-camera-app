@@ -31,7 +31,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.rule.GrantPermissionRule
 import com.google.common.truth.Truth.assertThat
 import com.google.jetpackcamera.MainActivity
-import com.google.jetpackcamera.settings.model.ConcurrentCameraMode
+import com.google.jetpackcamera.model.ConcurrentCameraMode
 import com.google.jetpackcamera.ui.components.capture.BTN_QUICK_SETTINGS_FOCUS_CAPTURE_MODE
 import com.google.jetpackcamera.ui.components.capture.CAPTURE_BUTTON
 import com.google.jetpackcamera.ui.components.capture.FLIP_CAMERA_BUTTON
@@ -49,7 +49,7 @@ import com.google.jetpackcamera.utils.TEST_REQUIRED_PERMISSIONS
 import com.google.jetpackcamera.utils.VIDEO_CAPTURE_TIMEOUT_MILLIS
 import com.google.jetpackcamera.utils.assume
 import com.google.jetpackcamera.utils.getResString
-import com.google.jetpackcamera.utils.longClickForVideoRecording
+import com.google.jetpackcamera.utils.longClickForVideoRecordingCheckingElapsedTime
 import com.google.jetpackcamera.utils.runMainActivityMediaStoreAutoDeleteScenarioTest
 import com.google.jetpackcamera.utils.runMainActivityScenarioTest
 import com.google.jetpackcamera.utils.stateDescriptionMatches
@@ -278,7 +278,7 @@ class ConcurrentCameraTest {
                 .assertExists()
                 .performClick()
 
-            longClickForVideoRecording()
+            longClickForVideoRecordingCheckingElapsedTime()
 
             waitUntil(timeoutMillis = VIDEO_CAPTURE_TIMEOUT_MILLIS) {
                 composeTestRule.onNodeWithTag(VIDEO_CAPTURE_SUCCESS_TAG).isDisplayed()
@@ -333,18 +333,20 @@ class ConcurrentCameraTest {
     }
 
     private fun SemanticsNode.fetchConcurrentCameraMode(): ConcurrentCameraMode {
-        config[SemanticsProperties.ContentDescription].any { description ->
-            when (description) {
-                getResString(R.string.quick_settings_description_concurrent_camera_off) ->
-                    return ConcurrentCameraMode.OFF
-
-                getResString(R.string.quick_settings_description_concurrent_camera_dual) ->
-                    return ConcurrentCameraMode.DUAL
-
-                else -> false
-            }
-        }
-        throw AssertionError("Unable to determine concurrent camera mode from quick settings")
+        return config[SemanticsProperties.ContentDescription]
+            .firstNotNullOfOrNull { description ->
+                when (description) {
+                    getResString(
+                        R.string.quick_settings_description_concurrent_camera_off
+                    ) -> ConcurrentCameraMode.OFF
+                    getResString(
+                        R.string.quick_settings_description_concurrent_camera_dual
+                    ) -> ConcurrentCameraMode.DUAL
+                    else -> null
+                }
+            } ?: throw AssertionError(
+            "Unable to determine concurrent camera mode from quick settings"
+        )
     }
 
     private fun SemanticsNodeInteraction.assertConcurrentCameraMode(
