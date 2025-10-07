@@ -37,7 +37,6 @@ android {
         testInstrumentationRunnerArguments["clearPackageData"] = "true"
     }
 
-
     buildTypes {
         getByName("debug") {
             signingConfig = signingConfigs.getByName("debug")
@@ -139,8 +138,8 @@ dependencies {
     androidTestImplementation(libs.androidx.rules)
     androidTestImplementation(libs.androidx.uiautomator)
     androidTestImplementation(libs.truth)
+    androidTestImplementation(project(":ui:components:capture"))
     androidTestUtil(libs.androidx.orchestrator)
-
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
@@ -166,7 +165,6 @@ dependencies {
 
     // Permissions Screen
     implementation(project(":feature:permissions"))
-
     // benchmark
     implementation(libs.androidx.profileinstaller)
 }

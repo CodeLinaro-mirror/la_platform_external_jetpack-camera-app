@@ -30,8 +30,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.google.jetpackcamera.data.media.MediaDescriptor
+import com.google.jetpackcamera.ui.components.capture.IMAGE_WELL_TAG
 import kotlin.math.min
 
 @Composable
@@ -51,6 +53,7 @@ fun ImageWell(
             bitmap?.let {
                 Box(
                     modifier = modifier
+                        .testTag(IMAGE_WELL_TAG)
                         .size(120.dp)
                         .padding(18.dp)
                         .border(2.dp, Color.White, RoundedCornerShape(16.dp))

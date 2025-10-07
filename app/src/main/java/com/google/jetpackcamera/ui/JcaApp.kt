@@ -16,6 +16,7 @@
 package com.google.jetpackcamera.ui
 
 import android.Manifest
+import android.os.Build
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.EaseIn
 import androidx.compose.animation.core.EaseOut
@@ -39,6 +40,7 @@ import com.google.jetpackcamera.feature.preview.PreviewScreen
 import com.google.jetpackcamera.permissions.PermissionsScreen
 import com.google.jetpackcamera.settings.SettingsScreen
 import com.google.jetpackcamera.settings.VersionInfoHolder
+import com.google.jetpackcamera.settings.model.DebugSettings
 import com.google.jetpackcamera.ui.Routes.PERMISSIONS_ROUTE
 import com.google.jetpackcamera.ui.Routes.POST_CAPTURE_ROUTE
 import com.google.jetpackcamera.ui.Routes.PREVIEW_ROUTE
@@ -50,13 +52,13 @@ fun JcaApp(
     /*TODO(b/306236646): remove after still capture*/
     previewMode: PreviewMode,
     modifier: Modifier = Modifier,
-    isDebugMode: Boolean,
+    debugSettings: DebugSettings,
     onRequestWindowColorMode: (Int) -> Unit,
     onFirstFrameCaptureCompleted: () -> Unit
 ) {
     JetpackCameraNavHost(
         previewMode = previewMode,
-        isDebugMode = isDebugMode,
+        debugSettings = debugSettings,
         onOpenAppSettings = openAppSettings,
         onRequestWindowColorMode = onRequestWindowColorMode,
         onFirstFrameCaptureCompleted = onFirstFrameCaptureCompleted,
@@ -69,7 +71,7 @@ fun JcaApp(
 private fun JetpackCameraNavHost(
     modifier: Modifier = Modifier,
     previewMode: PreviewMode,
-    isDebugMode: Boolean,
+    debugSettings: DebugSettings,
     onOpenAppSettings: () -> Unit,
     onRequestWindowColorMode: (Int) -> Unit,
     onFirstFrameCaptureCompleted: () -> Unit,
@@ -82,6 +84,8 @@ private fun JetpackCameraNavHost(
     ) {
         composable(PERMISSIONS_ROUTE) {
             PermissionsScreen(
+                shouldRequestReadWriteStoragePermission = previewMode is PreviewMode.StandardMode &&
+                    Build.VERSION.SDK_INT <= Build.VERSION_CODES.P,
                 shouldRequestAudioPermission = previewMode is PreviewMode.StandardMode,
                 onAllPermissionsGranted = {
                     // Pop off the permissions screen
@@ -97,10 +101,15 @@ private fun JetpackCameraNavHost(
 
         composable(route = PREVIEW_ROUTE, enterTransition = { fadeIn() }) {
             val permissionStates = rememberMultiplePermissionsState(
-                permissions = listOf(
-                    Manifest.permission.CAMERA,
-                    Manifest.permission.RECORD_AUDIO
-                )
+                permissions =
+                buildList {
+                    add(Manifest.permission.CAMERA)
+                    add(Manifest.permission.RECORD_AUDIO)
+                    if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
+                        add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                        add(Manifest.permission.READ_EXTERNAL_STORAGE)
+                    }
+                }
             )
             // Automatically navigate to permissions screen when camera permission revoked
             LaunchedEffect(key1 = permissionStates.permissions[0].status) {
@@ -119,7 +128,7 @@ private fun JetpackCameraNavHost(
                 onRequestWindowColorMode = onRequestWindowColorMode,
                 onFirstFrameCaptureCompleted = onFirstFrameCaptureCompleted,
                 previewMode = previewMode,
-                isDebugMode = isDebugMode
+                debugSettings = debugSettings
             )
         }
         composable(
