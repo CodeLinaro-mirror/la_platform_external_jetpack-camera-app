@@ -18,11 +18,13 @@ java_defaults {
         "androidx.navigation_navigation-compose",
         "hilt_android",
         "androidx.compose.runtime_runtime",
+        "jetpack-camera-app_core_model",
         "jetpack-camera-app_data_settings",
         "jetpack-camera-app_feature_permissions",
         "jetpack-camera-app_feature_preview",
         "jetpack-camera-app_feature_settings",
         "jetpack-camera-app_feature_postcapture",
+        "jetpack-camera-app_ui_components_capture",
     ],
     srcs: [
         "java/**/*.kt",
@@ -31,7 +33,7 @@ java_defaults {
         "res",
     ],
     sdk_version: "34",
-    min_sdk_version: "21",
+    min_sdk_version: "23",
 }
 
 android_app {

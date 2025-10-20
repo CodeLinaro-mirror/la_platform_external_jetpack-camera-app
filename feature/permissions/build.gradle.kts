@@ -45,9 +45,6 @@ android {
         buildConfig = true
         compose = true
     }
-    composeOptions {
-        kotlinCompilerExtensionVersion = libs.versions.composeCompiler.get()
-    }
 }
 
 dependencies {
@@ -65,6 +62,7 @@ dependencies {
     debugImplementation(libs.compose.ui.tooling)
 
     // Compose - Integration with ViewModels with Navigation and Hilt
+    implementation(libs.androidx.navigation.compose)
     implementation(libs.hilt.navigation.compose)
 
 

@@ -18,7 +18,6 @@ import android.provider.MediaStore
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsNodeInteraction
-import androidx.compose.ui.test.SemanticsNodeInteractionsProvider
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.isDisplayed
@@ -32,8 +31,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.rule.GrantPermissionRule
 import com.google.common.truth.Truth.assertThat
 import com.google.jetpackcamera.MainActivity
-import com.google.jetpackcamera.feature.preview.R
-import com.google.jetpackcamera.settings.model.ConcurrentCameraMode
+import com.google.jetpackcamera.model.ConcurrentCameraMode
 import com.google.jetpackcamera.ui.components.capture.BTN_QUICK_SETTINGS_FOCUS_CAPTURE_MODE
 import com.google.jetpackcamera.ui.components.capture.CAPTURE_BUTTON
 import com.google.jetpackcamera.ui.components.capture.FLIP_CAMERA_BUTTON
@@ -44,13 +42,14 @@ import com.google.jetpackcamera.ui.components.capture.QUICK_SETTINGS_HDR_BUTTON
 import com.google.jetpackcamera.ui.components.capture.QUICK_SETTINGS_RATIO_1_1_BUTTON
 import com.google.jetpackcamera.ui.components.capture.QUICK_SETTINGS_RATIO_BUTTON
 import com.google.jetpackcamera.ui.components.capture.QUICK_SETTINGS_STREAM_CONFIG_BUTTON
+import com.google.jetpackcamera.ui.components.capture.R
 import com.google.jetpackcamera.ui.components.capture.VIDEO_CAPTURE_SUCCESS_TAG
 import com.google.jetpackcamera.utils.APP_START_TIMEOUT_MILLIS
 import com.google.jetpackcamera.utils.TEST_REQUIRED_PERMISSIONS
 import com.google.jetpackcamera.utils.VIDEO_CAPTURE_TIMEOUT_MILLIS
 import com.google.jetpackcamera.utils.assume
 import com.google.jetpackcamera.utils.getResString
-import com.google.jetpackcamera.utils.longClickForVideoRecording
+import com.google.jetpackcamera.utils.longClickForVideoRecordingCheckingElapsedTime
 import com.google.jetpackcamera.utils.runMainActivityMediaStoreAutoDeleteScenarioTest
 import com.google.jetpackcamera.utils.runMainActivityScenarioTest
 import com.google.jetpackcamera.utils.stateDescriptionMatches
@@ -279,7 +278,7 @@ class ConcurrentCameraTest {
                 .assertExists()
                 .performClick()
 
-            longClickForVideoRecording()
+            longClickForVideoRecordingCheckingElapsedTime()
 
             waitUntil(timeoutMillis = VIDEO_CAPTURE_TIMEOUT_MILLIS) {
                 composeTestRule.onNodeWithTag(VIDEO_CAPTURE_SUCCESS_TAG).isDisplayed()
@@ -333,23 +332,23 @@ class ConcurrentCameraTest {
         }
     }
 
-    context(SemanticsNodeInteractionsProvider)
     private fun SemanticsNode.fetchConcurrentCameraMode(): ConcurrentCameraMode {
-        config[SemanticsProperties.ContentDescription].any { description ->
-            when (description) {
-                getResString(R.string.quick_settings_description_concurrent_camera_off) ->
-                    return ConcurrentCameraMode.OFF
-
-                getResString(R.string.quick_settings_description_concurrent_camera_dual) ->
-                    return ConcurrentCameraMode.DUAL
-
-                else -> false
-            }
-        }
-        throw AssertionError("Unable to determine concurrent camera mode from quick settings")
+        return config[SemanticsProperties.ContentDescription]
+            .firstNotNullOfOrNull { description ->
+                when (description) {
+                    getResString(
+                        R.string.quick_settings_description_concurrent_camera_off
+                    ) -> ConcurrentCameraMode.OFF
+                    getResString(
+                        R.string.quick_settings_description_concurrent_camera_dual
+                    ) -> ConcurrentCameraMode.DUAL
+                    else -> null
+                }
+            } ?: throw AssertionError(
+            "Unable to determine concurrent camera mode from quick settings"
+        )
     }
 
-    context(SemanticsNodeInteractionsProvider)
     private fun SemanticsNodeInteraction.assertConcurrentCameraMode(
         mode: ConcurrentCameraMode
     ): SemanticsNodeInteraction {

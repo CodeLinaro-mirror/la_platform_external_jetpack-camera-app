@@ -7,9 +7,6 @@ package {
 android_library {
     name: "jetpack-camera-app_feature_preview",
     srcs: ["src/main/**/*.kt"],
-    resource_dirs: [
-        "src/main/res",
-    ],
     static_libs: [
         "androidx.compose.runtime_runtime",
         "androidx.compose.material3_material3",
@@ -17,6 +14,7 @@ android_library {
         "androidx.compose.ui_ui-tooling-preview",
         "androidx.tracing_tracing-ktx",
         "hilt_android",
+        "androidx.navigation_navigation-compose",
         "androidx.hilt_hilt-navigation-compose",
         "androidx.compose.ui_ui-tooling",
         "kotlinx_coroutines_guava",
@@ -27,6 +25,7 @@ android_library {
         "androidx.camera_camera-viewfinder",
         "jetpack-camera-app_data_settings",
         "jetpack-camera-app_core_camera",
+        "jetpack-camera-app_core_model",
         "jetpack-camera-app_core_common",
         "jetpack-camera-app_data_media",
         "androidx.compose.ui_ui-tooling",
@@ -37,7 +36,7 @@ android_library {
         "jetpack-camera-app_ui_components_capture",
     ],
     sdk_version: "34",
-    min_sdk_version: "21",
+    min_sdk_version: "23",
     manifest: "src/main/AndroidManifest.xml",
     apex_available: [
         "com.android.mediaprovider",

@@ -26,7 +26,7 @@ android_test {
         "kotlinx_coroutines_test",
         "androidx.compose.ui_ui-test-junit4",
         "androidx.compose.ui_ui-test",
-        "jetpack-camera-app_ui_components_capture",
+        "jetpack-camera-app_core_model",
     ],
     sdk_version: "34",
     test_suites: ["general-tests"],

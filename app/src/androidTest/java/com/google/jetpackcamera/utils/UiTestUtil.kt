@@ -37,6 +37,7 @@ import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
 import com.google.common.truth.Truth.assertWithMessage
+import com.google.errorprone.annotations.CanIgnoreReturnValue
 import com.google.jetpackcamera.MainActivity
 import java.io.File
 import java.net.URLConnection
@@ -71,8 +72,9 @@ val compatMainActivityExtras: Bundle?
     }
 const val DEFAULT_TIMEOUT_MILLIS = 1_000L
 const val APP_START_TIMEOUT_MILLIS = 10_000L
+const val ELAPSED_TIME_TEXT_TIMEOUT_MILLIS = 45_000L
 const val SCREEN_FLASH_OVERLAY_TIMEOUT_MILLIS = 5_000L
-const val IMAGE_CAPTURE_TIMEOUT_MILLIS = 5_000L
+const val IMAGE_CAPTURE_TIMEOUT_MILLIS = 45_000L
 const val VIDEO_CAPTURE_TIMEOUT_MILLIS = 5_000L
 const val VIDEO_DURATION_MILLIS = 3_000L
 const val MESSAGE_DISAPPEAR_TIMEOUT_MILLIS = 15_000L
@@ -220,6 +222,7 @@ fun getTestUri(directoryPath: String, timeStamp: Long, suffix: String): Uri = Ur
 /**
  * @return - true if all eligible files were successfully deleted. False otherwise
  */
+@CanIgnoreReturnValue
 fun deleteFilesInDirAfterTimestamp(
     directoryPath: String,
     instrumentation: Instrumentation,

@@ -53,9 +53,6 @@ android {
         buildConfig = true
         compose = true
     }
-    composeOptions {
-        kotlinCompilerExtensionVersion = libs.versions.composeCompiler.get()
-    }
 
     @Suppress("UnstableApiUsage")
     testOptions {
@@ -84,6 +81,11 @@ dependencies {
 
     // Compose - Material Design 3
     implementation(libs.compose.material3)
+    //todo(): icons library is no longer being maintained. Migrate to material symbols.
+    implementation(libs.compose.material.icons.extended)
+
+    //todo(): icons library is no longer being maintained. Migrate to material symbols.
+    implementation(libs.compose.material.icons.extended)
 
     // Compose - Android Studio Preview support
     implementation(libs.compose.ui.tooling.preview)
@@ -120,6 +122,7 @@ dependencies {
     implementation(libs.protobuf.kotlin.lite)
 
     implementation(project(":data:settings"))
+    implementation(project(":core:model"))
 }
 
 // Allow references to generated code
