@@ -15,7 +15,7 @@ android_library {
         "com.google.android.material_material",
     ],
     sdk_version: "34",
-    min_sdk_version: "21",
+    min_sdk_version: "23",
     manifest: "src/main/AndroidManifest.xml",
     apex_available: [
         "com.android.mediaprovider",

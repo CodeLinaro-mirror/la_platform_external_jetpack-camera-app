@@ -71,9 +71,6 @@ android {
         buildConfig = true
         compose = true
     }
-    composeOptions {
-        kotlinCompilerExtensionVersion = libs.versions.composeCompiler.get()
-    }
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -97,10 +94,6 @@ android {
                 }
             }
         }
-    }
-
-    kotlinOptions {
-        freeCompilerArgs += "-Xcontext-receivers"
     }
 }
 
@@ -167,6 +160,8 @@ dependencies {
     implementation(project(":feature:permissions"))
     // benchmark
     implementation(libs.androidx.profileinstaller)
+    // capture components
+    implementation(project(":ui:components:capture"))
 }
 
 // Allow references to generated code
