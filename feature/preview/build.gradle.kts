@@ -83,6 +83,7 @@ android {
 dependencies {
     // Accompanist - Permissions
     implementation(libs.accompanist.permissions)
+    implementation(libs.androidx.material3.window.size.klass)
 
     // Compose
     val composeBom = platform(libs.compose.bom)
@@ -150,6 +151,7 @@ dependencies {
     implementation(project(":ui:uistate"))
     implementation(project(":ui:uistate:capture"))
     implementation(project(":ui:uistateadapter:capture"))
+
 }
 
 // Allow references to generated code
