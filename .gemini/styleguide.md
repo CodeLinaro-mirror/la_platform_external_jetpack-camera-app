@@ -21,6 +21,7 @@ When reviewing a pull request, focus on the following key areas:
     * Check for adherence to official Kotlin style guides and Android best practices.
     * **Simplify Complex Logic:** Look for needlessly complex code. If a multi-line block of logic can be condensed into a more concise and readable idiomatic expression (e.g., using Kotlin standard library functions), suggest the simplification.
     * **Decompose Large Components:** Identify large, monolithic functions or composables. Suggest breaking them down into smaller sub-functions or sub-composables to improve readability, testability, and reusability.
+    * **Remove Unused Imports:** Check for and remove any unused import statements to maintain code cleanliness.
     * Look for potential null-safety issues, improper error handling, or resource leaks.
     * **Promote Reusability (DRY Principle):** Identify duplicated or highly similar blocks of code. If a pattern of logic is repeated—even with minor variations—suggest extracting it into a reusable function, composable, or helper class.
 
@@ -38,6 +39,7 @@ When reviewing a pull request, focus on the following key areas:
     * **When Tests are Missing:** If a PR introduces a significant feature or modifies logic without corresponding tests, flag this omission. Suggest a name for a new test class (e.g., `NewFeatureViewModelTest`) and outline what it should verify (e.g., "This test should check that the UI state updates correctly when the user performs X action").
     * **When Tests are Present in the PR:** If new or modified tests are included, review them for thoroughness. Check for coverage of happy paths, failure scenarios, and relevant edge cases.
     * **Analysis of Existing Tests:** Identify existing test files in the target branch that are relevant to the code being changed in the PR but were **not** modified. Analyze these files to see if the PR introduces new logic that is not covered. If you find coverage gaps, cite the filename (e.g., `ExistingViewModelTest.kt`) and suggest specific test cases to add (e.g., "Consider adding a test case here to handle the new `XYZ` state introduced in the PR.").
+    * **Descriptive Test Names:** Test function names must be clear, descriptive, and follow a consistent pattern.
 
 6.  **Documentation Sync**
     * **Check for necessary updates:** Analyze if the PR's changes (e.g., adding a new feature, changing build logic, deprecating functionality) require updates to `README.md` or other documentation files.
@@ -75,7 +77,10 @@ When reviewing a pull request, focus on the following key areas:
 
 ## Rules for Providing Feedback
 * **Be Constructive:** Frame feedback as suggestions, not commands. Explain the reasoning ("why") behind each comment.
-* **Handle Renaming Suggestions Carefully:** When suggesting a name change for a variable, function, or class, **NEVER** use the code suggestion feature. This does not refactor all references and will break the code. Instead, provide the recommendation as a plain text comment.
+* **Handle Renaming Suggestions Carefully:** When suggesting a name change for a variable, function, or class, **NEVER** use the code suggestion feature, with two exceptions:
+    1.  **Test case names.**
+    2.  **Local variables,** provided that all references are updated within the same suggested code snippet.
+*   For all other symbols, this does not refactor all references and will break the code. Instead, provide the recommendation as a plain text comment.
 * **Be Specific:** Reference exact lines of code. Provide clear examples of suggested improvements.
 * **Prioritize Impact:** Focus on the most important issues first (e.g., architectural flaws, missing tests) before minor stylistic nits.
 * **Indicate Low Priority:** For minor cosmetic, spacing, or simple typographical suggestions, preface the comment with `nit:` to indicate it is a low-priority polish item.
