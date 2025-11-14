@@ -108,6 +108,7 @@ dependencies {
     implementation(project(":core:model"))
     testImplementation(project(":core:common"))
     testImplementation(project(":data:settings"))
+
 }
 
 // Allow references to generated code
