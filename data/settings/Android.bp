@@ -16,6 +16,7 @@ android_library {
         "jetpack-camera-app-protos-java-gen_data_settings",
         "libprotobuf-java-lite",
         "jetpack-camera-app_core_model",
+        "jetpack-camera-app_core_common",
     ],
     sdk_version: "34",
     min_sdk_version: "23",
