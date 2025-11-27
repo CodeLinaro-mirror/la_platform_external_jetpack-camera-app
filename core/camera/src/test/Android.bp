@@ -5,7 +5,9 @@ package {
 java_test {
     name: "jetpack-camera-app_core_camera-tests",
     team: "trendy_team_android_camera_innovation_team",
+    // TODO: remove exclude and convert this target to android_robolectric_test
     srcs: ["java/**/*.kt"],
+    exclude_srcs: ["java/com/google/jetpackcamera/core/camera/SurfaceToSensorMeteringPointFactoryTest.kt"],
     static_libs: [
         "androidx.test.runner",
         "kotlinx_coroutines_test",
