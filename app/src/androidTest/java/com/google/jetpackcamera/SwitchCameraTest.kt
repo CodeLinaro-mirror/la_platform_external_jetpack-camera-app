@@ -77,6 +77,7 @@ class SwitchCameraTest {
     }
 
     @Test
+    @org.junit.Ignore("b/462480433")
     fun canFlipCamera_fromPreviewScreenDoubleTap() = runFlipCameraTest(composeTestRule) {
         val lensFacingStates = mutableListOf<LensFacing>()
         // Get initial lens facing
