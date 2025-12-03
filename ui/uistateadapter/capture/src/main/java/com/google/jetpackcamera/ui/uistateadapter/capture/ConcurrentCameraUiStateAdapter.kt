@@ -15,20 +15,20 @@
  */
 package com.google.jetpackcamera.ui.uistateadapter.capture
 
+import com.google.jetpackcamera.model.CaptureMode
+import com.google.jetpackcamera.model.DEFAULT_HDR_DYNAMIC_RANGE
+import com.google.jetpackcamera.model.DEFAULT_HDR_IMAGE_OUTPUT
+import com.google.jetpackcamera.model.ExternalCaptureMode
+import com.google.jetpackcamera.model.StreamConfig
 import com.google.jetpackcamera.settings.model.CameraAppSettings
-import com.google.jetpackcamera.settings.model.CaptureMode
-import com.google.jetpackcamera.settings.model.DEFAULT_HDR_DYNAMIC_RANGE
-import com.google.jetpackcamera.settings.model.DEFAULT_HDR_IMAGE_OUTPUT
-import com.google.jetpackcamera.settings.model.ExternalCaptureMode
-import com.google.jetpackcamera.settings.model.StreamConfig
-import com.google.jetpackcamera.settings.model.SystemConstraints
+import com.google.jetpackcamera.settings.model.CameraSystemConstraints
 import com.google.jetpackcamera.ui.uistate.capture.CaptureModeUiState
 import com.google.jetpackcamera.ui.uistate.capture.ConcurrentCameraUiState
 import com.google.jetpackcamera.ui.uistate.capture.StreamConfigUiState
 
 fun ConcurrentCameraUiState.Companion.from(
     cameraAppSettings: CameraAppSettings,
-    systemConstraints: SystemConstraints,
+    systemConstraints: CameraSystemConstraints,
     externalCaptureMode: ExternalCaptureMode,
     captureModeUiState: CaptureModeUiState,
     streamConfigUiState: StreamConfigUiState
@@ -36,7 +36,7 @@ fun ConcurrentCameraUiState.Companion.from(
     return ConcurrentCameraUiState.Available(
         selectedConcurrentCameraMode = cameraAppSettings.concurrentCameraMode,
         isEnabled = systemConstraints.concurrentCamerasSupported &&
-            externalCaptureMode !is ExternalCaptureMode.ExternalImageCaptureMode && (
+            externalCaptureMode != ExternalCaptureMode.ImageCapture && (
                 (
                     captureModeUiState as?
                         CaptureModeUiState.Available

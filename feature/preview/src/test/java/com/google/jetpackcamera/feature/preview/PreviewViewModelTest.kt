@@ -16,14 +16,13 @@
 package com.google.jetpackcamera.feature.preview
 
 import android.content.ContentResolver
+import androidx.lifecycle.SavedStateHandle
 import com.google.common.truth.Truth.assertThat
-import com.google.jetpackcamera.core.camera.test.FakeCameraUseCase
+import com.google.jetpackcamera.core.camera.test.FakeCameraSystem
 import com.google.jetpackcamera.data.media.FakeMediaRepository
+import com.google.jetpackcamera.model.FlashMode
+import com.google.jetpackcamera.model.LensFacing
 import com.google.jetpackcamera.settings.SettableConstraintsRepositoryImpl
-import com.google.jetpackcamera.settings.model.DebugSettings
-import com.google.jetpackcamera.settings.model.ExternalCaptureMode
-import com.google.jetpackcamera.settings.model.FlashMode
-import com.google.jetpackcamera.settings.model.LensFacing
 import com.google.jetpackcamera.settings.model.TYPICAL_SYSTEM_CONSTRAINTS
 import com.google.jetpackcamera.settings.test.FakeSettingsRepository
 import com.google.jetpackcamera.ui.uistate.capture.FlashModeUiState
@@ -46,7 +45,7 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class PreviewViewModelTest {
 
-    private val cameraUseCase = FakeCameraUseCase()
+    private val cameraSystem = FakeCameraSystem()
     private val constraintsRepository = SettableConstraintsRepositoryImpl().apply {
         updateSystemConstraints(TYPICAL_SYSTEM_CONSTRAINTS)
     }
@@ -56,12 +55,11 @@ class PreviewViewModelTest {
     fun setup() = runTest(StandardTestDispatcher()) {
         Dispatchers.setMain(StandardTestDispatcher())
         previewViewModel = PreviewViewModel(
-            ExternalCaptureMode.StandardMode {},
-            DebugSettings(isDebugModeEnabled = false),
-            cameraUseCase = cameraUseCase,
+            cameraSystem = cameraSystem,
             constraintsRepository = constraintsRepository,
             settingsRepository = FakeSettingsRepository,
-            mediaRepository = FakeMediaRepository
+            mediaRepository = FakeMediaRepository,
+            savedStateHandle = SavedStateHandle()
         )
         advanceUntilIdle()
     }
@@ -77,34 +75,34 @@ class PreviewViewModelTest {
     fun runCamera() = runTest(StandardTestDispatcher()) {
         previewViewModel.startCameraUntilRunning()
 
-        assertThat(cameraUseCase.previewStarted).isTrue()
+        assertThat(cameraSystem.previewStarted).isTrue()
     }
 
     @Test
     fun captureImageWithUri() = runTest(StandardTestDispatcher()) {
         val contentResolver: ContentResolver = mock()
         previewViewModel.startCameraUntilRunning()
-        previewViewModel.captureImageWithUri(contentResolver, null) { _, _ -> }
+        previewViewModel.captureImage(contentResolver)
         advanceUntilIdle()
-        assertThat(cameraUseCase.numPicturesTaken).isEqualTo(1)
+        assertThat(cameraSystem.numPicturesTaken).isEqualTo(1)
     }
 
     @Test
     fun startVideoRecording() = runTest(StandardTestDispatcher()) {
         previewViewModel.startCameraUntilRunning()
-        previewViewModel.startVideoRecording(null, false) {}
+        previewViewModel.startVideoRecording()
         advanceUntilIdle()
-        assertThat(cameraUseCase.recordingInProgress).isTrue()
+        assertThat(cameraSystem.recordingInProgress).isTrue()
     }
 
     @Test
     fun stopVideoRecording() = runTest(StandardTestDispatcher()) {
         previewViewModel.startCameraUntilRunning()
-        previewViewModel.startVideoRecording(null, false) {}
+        previewViewModel.startVideoRecording()
         advanceUntilIdle()
         previewViewModel.stopVideoRecording()
         advanceUntilIdle()
-        assertThat(cameraUseCase.recordingInProgress).isFalse()
+        assertThat(cameraSystem.recordingInProgress).isFalse()
     }
 
     @Test
@@ -144,7 +142,7 @@ class PreviewViewModelTest {
                     .selectedLensFacing
             ).isEqualTo(LensFacing.FRONT)
         }
-        assertThat(cameraUseCase.isLensFacingFront).isTrue()
+        assertThat(cameraSystem.isLensFacingFront).isTrue()
     }
 
     context(TestScope)
