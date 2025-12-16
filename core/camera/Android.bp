@@ -19,6 +19,7 @@ android_library {
         "jetpack-camera-app_data_settings",
         "jetpack-camera-app_core_common",
         "jetpack-camera-app_core_camera_low-light",
+        "jetpack-camera-app_core_camera_postprocess",
     ],
     sdk_version: "35",
     min_sdk_version: "23",
