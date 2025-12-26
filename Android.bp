@@ -5,15 +5,6 @@ package {
     default_team: "trendy_team_android_camera_innovation_team",
 }
 
-subdirs = [
-    "app",
-    "core/common",
-    "camera-viewfinder-compose",
-    "data/settings",
-    "domain/camera",
-    "feature",
-]
-
 filegroup {
     name: "jca_its_test_files",
     srcs: [
@@ -41,4 +32,3 @@ python_test_host {
     },
     test_suites: ["general-tests"],
 }
-
