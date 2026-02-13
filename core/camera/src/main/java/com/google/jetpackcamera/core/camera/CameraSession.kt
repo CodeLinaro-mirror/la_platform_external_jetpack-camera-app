@@ -39,13 +39,10 @@ import androidx.camera.camera2.interop.Camera2Interop
 import androidx.camera.camera2.interop.CaptureRequestOptions
 import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.Camera
-import androidx.camera.core.CameraControl
 import androidx.camera.core.CameraEffect
 import androidx.camera.core.CameraInfo
-import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.Preview
-import androidx.camera.core.SurfaceOrientedMeteringPointFactory
 import androidx.camera.core.TorchState
 import androidx.camera.core.UseCaseGroup
 import androidx.camera.core.ViewPort
@@ -68,9 +65,8 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.ContextCompat.checkSelfPermission
 import androidx.core.net.toFile
 import androidx.lifecycle.asFlow
-import com.google.jetpackcamera.core.camera.CameraCoreUtil.getDefaultMediaSaveLocation
-import com.google.jetpackcamera.core.camera.CameraCoreUtil.getDefaultVideoSaveLocation
 import com.google.jetpackcamera.core.camera.effects.SingleSurfaceForcingEffect
+import com.google.jetpackcamera.core.common.FilePathGenerator
 import com.google.jetpackcamera.model.AspectRatio
 import com.google.jetpackcamera.model.CaptureMode
 import com.google.jetpackcamera.model.DeviceRotation
@@ -92,7 +88,6 @@ import com.google.jetpackcamera.model.VideoQuality.UHD
 import com.google.jetpackcamera.settings.model.CameraConstraints
 import java.io.File
 import java.io.FileNotFoundException
-import java.util.Date
 import java.util.concurrent.Executor
 import kotlin.coroutines.ContinuationInterceptor
 import kotlin.math.abs
@@ -111,7 +106,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.transform
 import kotlinx.coroutines.flow.update
@@ -244,7 +238,10 @@ internal suspend fun runSingleCameraSession(
                 ) { camera ->
                     Log.d(TAG, "Camera session started")
                     launch {
-                        processFocusMeteringEvents(camera.cameraControl)
+                        processFocusMeteringEvents(
+                            camera.cameraInfo,
+                            camera.cameraControl
+                        )
                     }
 
                     launch {
@@ -844,6 +841,7 @@ private fun getPendingRecording(
     context: Context,
     videoCaptureUseCase: VideoCapture<Recorder>,
     maxDurationMillis: Long,
+    filePathGenerator: FilePathGenerator,
     captureTypeSuffix: String,
     saveLocation: SaveLocation,
     onVideoRecord: (OnVideoRecordEvent) -> Unit
@@ -902,7 +900,8 @@ private fun getPendingRecording(
             }
 
         is SaveLocation.Default -> {
-            val outputFilename = "JCA-recording-${Date().time}-$captureTypeSuffix.mp4"
+            val outputFilename =
+                filePathGenerator.generateVideoFilename(suffixText = captureTypeSuffix)
             val mediaUrl = MediaStore.Video.Media.EXTERNAL_CONTENT_URI
             val contentResolver = context.contentResolver
 
@@ -913,7 +912,7 @@ private fun getPendingRecording(
 
                     // API 28 fix -- Manually set output directory and final output filename
                     if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
-                        val volumePath = getDefaultVideoSaveLocation()
+                        val volumePath = filePathGenerator.absoluteVideoOutputPath
                         if (volumePath.isNotEmpty()) {
                             put(MediaStore.MediaColumns.DATA, "$volumePath/$outputFilename")
                             Log.d(
@@ -929,7 +928,10 @@ private fun getPendingRecording(
                     }
 
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) { // Android 10+
-                        put(MediaStore.Video.Media.RELATIVE_PATH, getDefaultMediaSaveLocation())
+                        put(
+                            MediaStore.Video.Media.RELATIVE_PATH,
+                            filePathGenerator.relativeVideoOutputPath
+                        )
                     }
                 }
             val mediaStoreOutput =
@@ -1153,7 +1155,8 @@ private suspend fun runVideoRecording(
     transientSettings: StateFlow<TransientSessionSettings?>,
     saveLocation: SaveLocation,
     videoControlEvents: Channel<VideoCaptureControlEvent>,
-    onVideoRecord: (OnVideoRecordEvent) -> Unit
+    onVideoRecord: (OnVideoRecordEvent) -> Unit,
+    filePathGenerator: FilePathGenerator
 ) = coroutineScope {
     var currentSettings = transientSettings.filterNotNull().first()
 
@@ -1161,6 +1164,7 @@ private suspend fun runVideoRecording(
         context,
         videoCapture,
         maxDurationMillis,
+        filePathGenerator,
         captureTypeSuffix,
         saveLocation,
         onVideoRecord
@@ -1212,31 +1216,6 @@ private suspend fun runVideoRecording(
 }
 
 context(CameraSessionContext)
-internal suspend fun processFocusMeteringEvents(cameraControl: CameraControl) {
-    surfaceRequests.map { surfaceRequest ->
-        surfaceRequest?.resolution?.run {
-            Log.d(
-                TAG,
-                "Waiting to process focus points for surface with resolution: " +
-                    "$width x $height"
-            )
-            SurfaceOrientedMeteringPointFactory(width.toFloat(), height.toFloat())
-        }
-    }.collectLatest { meteringPointFactory ->
-        for (event in focusMeteringEvents) {
-            meteringPointFactory?.apply {
-                Log.d(TAG, "tapToFocus, processing event: $event")
-                val meteringPoint = createPoint(event.x, event.y)
-                val action = FocusMeteringAction.Builder(meteringPoint).build()
-                cameraControl.startFocusAndMetering(action)
-            } ?: run {
-                Log.w(TAG, "Ignoring event due to no SurfaceRequest: $event")
-            }
-        }
-    }
-}
-
-context(CameraSessionContext)
 internal suspend fun processVideoControlEvents(
     videoCapture: VideoCapture<Recorder>?,
     captureTypeSuffix: String
@@ -1257,7 +1236,8 @@ internal suspend fun processVideoControlEvents(
                     transientSettings,
                     event.saveLocation,
                     videoCaptureControlEvents,
-                    event.onVideoRecord
+                    event.onVideoRecord,
+                    filePathGenerator
                 )
             }
 
