@@ -22,6 +22,7 @@ android_library {
         "androidx.media3.media3-common",
         "androidx.media3.media3-exoplayer",
         "androidx.media3.media3-ui-compose",
+        "hilt_android",
         "kotlinx_coroutines_guava",
         "jetpack-camera-app_core_common",
         "jetpack-camera-app_data_media",
