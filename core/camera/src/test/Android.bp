@@ -13,7 +13,6 @@ java_test {
         "kotlinx_coroutines_test",
         "androidx.test.ext.junit",
         "androidx.test.ext.truth",
-        "mockito-core",
         "jetpack-camera-app_core_camera",
     ],
     min_sdk_version: "23",
