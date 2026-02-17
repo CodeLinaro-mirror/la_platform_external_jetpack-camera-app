@@ -29,6 +29,7 @@ import com.google.jetpackcamera.core.camera.CameraState
 import com.google.jetpackcamera.core.camera.CameraSystem
 import com.google.jetpackcamera.core.camera.OnVideoRecordEvent
 import com.google.jetpackcamera.core.common.traceFirstFramePreview
+import com.google.jetpackcamera.data.media.MediaDescriptor
 import com.google.jetpackcamera.data.media.MediaRepository
 import com.google.jetpackcamera.feature.preview.navigation.getCaptureUris
 import com.google.jetpackcamera.feature.preview.navigation.getDebugSettings
@@ -172,11 +173,13 @@ class PreviewViewModel @Inject constructor(
     private fun CameraAppSettings.applyExternalCaptureMode(
         externalCaptureMode: ExternalCaptureMode
     ): CameraAppSettings {
-        val captureMode = externalCaptureMode.toCaptureMode()
-        return if (captureMode == this.captureMode) {
+        val requiredCaptureModeOverride = externalCaptureMode.toCaptureMode()
+        return if (requiredCaptureModeOverride == null ||
+            requiredCaptureModeOverride == this.captureMode
+        ) {
             this
         } else {
-            this.copy(captureMode = captureMode)
+            this.copy(captureMode = requiredCaptureModeOverride)
         }
     }
 
@@ -318,7 +321,13 @@ class PreviewViewModel @Inject constructor(
                             cameraState,
                             externalCaptureMode
                         ),
-                        hdrUiState = hdrUiState
+                        hdrUiState = hdrUiState,
+
+                        imageWellUiState = ImageWellUiState.from(
+                            trackedUiState.recentCapturedMedia,
+                            cameraState.videoRecordingState
+                        )
+
                     )
                 }
             }.collect {}
@@ -388,14 +397,25 @@ class PreviewViewModel @Inject constructor(
         DebugUiState.Disabled
     }
 
+    /**
+     * Sets the media from the image well to the [MediaRepository].
+     */
+    fun imageWellToRepository() {
+        (_captureUiState.value as? CaptureUiState.Ready)
+            ?.let { it.imageWellUiState as? ImageWellUiState.LastCapture }
+            ?.let { setMediaRepository(it.mediaDescriptor) }
+    }
+
+    private fun setMediaRepository(mediaDescriptor: MediaDescriptor) {
+        viewModelScope.launch {
+            mediaRepository.setCurrentMedia(mediaDescriptor)
+        }
+    }
+
     fun updateLastCapturedMedia() {
         viewModelScope.launch {
-            val lastCapturedMediaDescriptor = mediaRepository.getLastCapturedMedia()
-            _captureUiState.update { old ->
-                (old as? CaptureUiState.Ready)?.copy(
-                    imageWellUiState =
-                    ImageWellUiState.from(lastCapturedMediaDescriptor)
-                ) ?: old
+            trackedPreviewUiState.update { old ->
+                old.copy(recentCapturedMedia = mediaRepository.getLastCapturedMedia())
             }
         }
     }
@@ -404,7 +424,7 @@ class PreviewViewModel @Inject constructor(
         ExternalCaptureMode.ImageCapture -> CaptureMode.IMAGE_ONLY
         ExternalCaptureMode.MultipleImageCapture -> CaptureMode.IMAGE_ONLY
         ExternalCaptureMode.VideoCapture -> CaptureMode.VIDEO_ONLY
-        ExternalCaptureMode.Standard -> CaptureMode.STANDARD
+        ExternalCaptureMode.Standard -> null
     }
 
     /**
@@ -876,6 +896,7 @@ class PreviewViewModel @Inject constructor(
         val isDebugOverlayOpen: Boolean = false,
         val isRecordingLocked: Boolean = false,
         val zoomAnimationTarget: Float? = null,
-        val debugHidingComponents: Boolean = false
+        val debugHidingComponents: Boolean = false,
+        val recentCapturedMedia: MediaDescriptor = MediaDescriptor.None
     )
 }

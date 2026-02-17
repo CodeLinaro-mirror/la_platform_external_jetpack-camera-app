@@ -109,6 +109,7 @@ import com.google.jetpackcamera.ui.uistate.capture.CaptureButtonUiState
 import com.google.jetpackcamera.ui.uistate.capture.CaptureModeToggleUiState
 import com.google.jetpackcamera.ui.uistate.capture.DebugUiState
 import com.google.jetpackcamera.ui.uistate.capture.FlipLensUiState
+import com.google.jetpackcamera.ui.uistate.capture.ImageWellUiState
 import com.google.jetpackcamera.ui.uistate.capture.ScreenFlashUiState
 import com.google.jetpackcamera.ui.uistate.capture.ZoomControlUiState
 import com.google.jetpackcamera.ui.uistate.capture.ZoomUiState
@@ -272,7 +273,7 @@ fun PreviewScreen(
                 onSetLensFacing = viewModel::setLensFacing,
                 onTapToFocus = viewModel::tapToFocus,
                 onSetTestPattern = viewModel::setTestPattern,
-
+                onSetImageWell = viewModel::imageWellToRepository,
                 onAbsoluteZoom = { zoomRatio: Float, lensToZoom: LensToZoom ->
                     scope.launch {
                         zoomState.absoluteZoom(
@@ -326,7 +327,7 @@ fun PreviewScreen(
                 onLockVideoRecording = viewModel::setLockedRecording,
                 onRequestWindowColorMode = onRequestWindowColorMode,
                 onSnackBarResult = viewModel::onSnackBarResult,
-                onImageWellClick = onNavigateToPostCapture
+                onNavigatePostCapture = onNavigateToPostCapture
             )
             val readStoragePermission: PermissionState = rememberPermissionState(
                 Manifest.permission.READ_EXTERNAL_STORAGE
@@ -356,6 +357,7 @@ private fun ContentScreen(
     onSetLensFacing: (newLensFacing: LensFacing) -> Unit = {},
     onTapToFocus: (x: Float, y: Float) -> Unit = { _, _ -> },
     onSetTestPattern: (TestPattern) -> Unit = {},
+    onSetImageWell: () -> Unit = {},
     onAbsoluteZoom: (Float, LensToZoom) -> Unit = { _, _ -> },
     onScaleZoom: (Float, LensToZoom) -> Unit = { _, _ -> },
     onIncrementZoom: (Float, LensToZoom) -> Unit = { _, _ -> },
@@ -379,7 +381,7 @@ private fun ContentScreen(
     onLockVideoRecording: (Boolean) -> Unit = {},
     onRequestWindowColorMode: (Int) -> Unit = {},
     onSnackBarResult: (String) -> Unit = {},
-    onImageWellClick: () -> Unit = {}
+    onNavigatePostCapture: () -> Unit = {}
 ) {
     val onFlipCamera = {
         if (captureUiState.flipLensUiState is FlipLensUiState.Available) {
@@ -605,11 +607,16 @@ private fun ContentScreen(
         },
         imageWell = { modifier ->
             if (captureUiState.externalCaptureMode == ExternalCaptureMode.Standard) {
-                ImageWell(
-                    modifier = modifier,
-                    imageWellUiState = captureUiState.imageWellUiState,
-                    onClick = onImageWellClick
-                )
+                (captureUiState.imageWellUiState as? ImageWellUiState.LastCapture)?.let {
+                    ImageWell(
+                        modifier = modifier,
+                        imageWellUiState = it,
+                        onClick = {
+                            onSetImageWell()
+                            onNavigatePostCapture()
+                        }
+                    )
+                }
             }
         }
     )
@@ -659,6 +666,7 @@ private fun LayoutWrapper(
         modifier = modifier,
         viewfinder = viewfinder,
         captureButton = captureButton,
+        imageWell = imageWell,
         flipCameraButton = flipCameraButton,
         zoomLevelDisplay = zoomLevelDisplay,
         elapsedTimeDisplay = elapsedTimeDisplay,
@@ -683,7 +691,6 @@ private fun LayoutWrapper(
                 modifier,
                 arrayOf(
                     { audioToggleButton(Modifier) },
-                    { imageWell(Modifier) },
                     { pauseToggleButton(Modifier) }
                 )
             )
