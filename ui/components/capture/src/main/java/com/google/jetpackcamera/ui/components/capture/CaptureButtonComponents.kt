@@ -156,7 +156,7 @@ private fun CaptureKeyHandler(
 }
 
 @Composable
-internal fun CaptureButton(
+fun CaptureButton(
     modifier: Modifier = Modifier,
     onImageCapture: () -> Unit,
     onStartRecording: () -> Unit,
@@ -409,7 +409,7 @@ private fun CaptureButton(
 }
 
 @Composable
-private fun CaptureButtonRing(
+fun CaptureButtonRing(
     modifier: Modifier = Modifier,
     captureButtonSize: Float,
     color: Color,

@@ -56,10 +56,7 @@ fun ScreenFlashScreen(
 }
 
 @Composable
-private fun ScreenFlashOverlay(
-    screenFlashUiState: ScreenFlashUiState,
-    modifier: Modifier = Modifier
-) {
+fun ScreenFlashOverlay(screenFlashUiState: ScreenFlashUiState, modifier: Modifier = Modifier) {
     // Update overlay transparency gradually
     val alpha by animateFloatAsState(
         targetValue = if (screenFlashUiState.enabled) 1f else 0f,
@@ -82,7 +79,7 @@ private fun ScreenFlashOverlay(
 }
 
 @Composable
-private fun BrightnessMaximization(onInitialBrightnessCalculated: (Float) -> Unit) {
+fun BrightnessMaximization(onInitialBrightnessCalculated: (Float) -> Unit) {
     // This Composable is attached to Activity in current code, so will have Activity context.
     // If the Composable is attached to somewhere else in future, this needs to be updated too.
     val activity = LocalContext.current as? Activity ?: run {
@@ -103,7 +100,7 @@ private fun BrightnessMaximization(onInitialBrightnessCalculated: (Float) -> Uni
 }
 
 @Composable
-private fun BrightnessRestoration(brightness: Float) {
+fun BrightnessRestoration(brightness: Float) {
     // This Composable is attached to Activity right now, so will have Activity context.
     // If the Composable is attached to somewhere else in future, this needs to be updated too.
     val activity = LocalContext.current as? Activity ?: run {
@@ -116,9 +113,9 @@ private fun BrightnessRestoration(brightness: Float) {
     }
 }
 
-private fun getScreenBrightness(window: Window): Float = window.attributes.screenBrightness
+fun getScreenBrightness(window: Window): Float = window.attributes.screenBrightness
 
-private fun setBrightness(activity: Activity, value: Float) {
+fun setBrightness(activity: Activity, value: Float) {
     Log.d(TAG, "setBrightness: value = $value")
     val layoutParams: WindowManager.LayoutParams = activity.window.attributes
     layoutParams.screenBrightness = value
