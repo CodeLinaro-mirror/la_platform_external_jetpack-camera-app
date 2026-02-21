@@ -2,18 +2,17 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-java_test {
+android_robolectric_test {
     name: "jetpack-camera-app_core_camera-tests",
     team: "trendy_team_android_camera_innovation_team",
-    // TODO: remove exclude and convert this target to android_robolectric_test
     srcs: ["java/**/*.kt"],
-    exclude_srcs: ["java/com/google/jetpackcamera/core/camera/SurfaceToSensorMeteringPointFactoryTest.kt"],
     static_libs: [
+        "androidx.test.core",
         "androidx.test.runner",
         "kotlinx_coroutines_test",
         "androidx.test.ext.junit",
         "androidx.test.ext.truth",
         "jetpack-camera-app_core_camera",
     ],
-    min_sdk_version: "23",
+    instrumentation_for: "jetpack-camera-app",
 }
