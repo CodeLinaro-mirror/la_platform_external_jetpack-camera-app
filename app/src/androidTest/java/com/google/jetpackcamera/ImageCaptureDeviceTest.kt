@@ -53,6 +53,7 @@ import com.google.jetpackcamera.utils.getTestUri
 import com.google.jetpackcamera.utils.longClickForVideoRecording
 import com.google.jetpackcamera.utils.runMainActivityMediaStoreAutoDeleteScenarioTest
 import com.google.jetpackcamera.utils.runMainActivityScenarioTestForResult
+import com.google.jetpackcamera.utils.waitForNodeWithTag
 import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
@@ -85,9 +86,7 @@ internal class ImageCaptureDeviceTest {
         composeTestRule.onNodeWithTag(CAPTURE_BUTTON)
             .assertExists()
             .performClick()
-        composeTestRule.waitUntil(timeoutMillis = IMAGE_CAPTURE_TIMEOUT_MILLIS) {
-            composeTestRule.onNodeWithTag(IMAGE_CAPTURE_SUCCESS_TAG).isDisplayed()
-        }
+        composeTestRule.waitForNodeWithTag(IMAGE_CAPTURE_SUCCESS_TAG, IMAGE_CAPTURE_TIMEOUT_MILLIS)
     }
 
     @Test
@@ -102,9 +101,7 @@ internal class ImageCaptureDeviceTest {
 
         uiDevice.pressKeyCode(KeyEvent.KEYCODE_VOLUME_UP)
 
-        composeTestRule.waitUntil(timeoutMillis = IMAGE_CAPTURE_TIMEOUT_MILLIS) {
-            composeTestRule.onNodeWithTag(IMAGE_CAPTURE_SUCCESS_TAG).isDisplayed()
-        }
+        composeTestRule.waitForNodeWithTag(IMAGE_CAPTURE_SUCCESS_TAG, IMAGE_CAPTURE_TIMEOUT_MILLIS)
     }
 
     @Test
@@ -118,9 +115,7 @@ internal class ImageCaptureDeviceTest {
         }
         uiDevice.pressKeyCode(KeyEvent.KEYCODE_VOLUME_DOWN)
 
-        composeTestRule.waitUntil(timeoutMillis = IMAGE_CAPTURE_TIMEOUT_MILLIS) {
-            composeTestRule.onNodeWithTag(IMAGE_CAPTURE_SUCCESS_TAG).isDisplayed()
-        }
+        composeTestRule.waitForNodeWithTag(IMAGE_CAPTURE_SUCCESS_TAG, IMAGE_CAPTURE_TIMEOUT_MILLIS)
     }
 
     @Test
@@ -165,9 +160,10 @@ internal class ImageCaptureDeviceTest {
                     .assertExists()
                     .performClick()
 
-                composeTestRule.waitUntil(timeoutMillis = IMAGE_CAPTURE_TIMEOUT_MILLIS) {
-                    composeTestRule.onNodeWithTag(IMAGE_CAPTURE_FAILURE_TAG).isDisplayed()
-                }
+                composeTestRule.waitForNodeWithTag(
+                    IMAGE_CAPTURE_FAILURE_TAG,
+                    IMAGE_CAPTURE_TIMEOUT_MILLIS
+                )
                 uiDevice.pressBack()
             }
         Truth.assertThat(result.resultCode).isEqualTo(Activity.RESULT_CANCELED)
