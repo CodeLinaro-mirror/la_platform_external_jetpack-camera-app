@@ -28,6 +28,7 @@ android_test {
         "androidx.compose.ui_ui-test-junit4",
         "androidx.compose.ui_ui-test",
         "jetpack-camera-app_core_model",
+        "TestParameterInjector",
     ],
     sdk_version: "34",
     test_suites: ["general-tests"],
