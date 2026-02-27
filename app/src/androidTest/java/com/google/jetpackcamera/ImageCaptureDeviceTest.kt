@@ -54,7 +54,6 @@ import com.google.jetpackcamera.utils.longClickForVideoRecording
 import com.google.jetpackcamera.utils.runMainActivityMediaStoreAutoDeleteScenarioTest
 import com.google.jetpackcamera.utils.runMainActivityScenarioTestForResult
 import com.google.jetpackcamera.utils.waitForNodeWithTag
-import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -272,7 +271,6 @@ internal class ImageCaptureDeviceTest {
         Truth.assertThat(result.resultCode).isEqualTo(Activity.RESULT_CANCELED)
     }
 
-    @Ignore("b/461925499")
     @Test
     fun multipleImageCaptureExternal_withIllegalUri_returnsResultOk() {
         val timeStamp = System.currentTimeMillis()

@@ -15,6 +15,7 @@ android_test {
         "java/com/google/jetpackcamera/PermissionsTest.kt",
     ],
     static_libs: [
+        "androidx.camera_camera-lifecycle",
         "androidx.test.runner",
         "androidx.test.uiautomator_uiautomator",
         "androidx.test.espresso.core",
