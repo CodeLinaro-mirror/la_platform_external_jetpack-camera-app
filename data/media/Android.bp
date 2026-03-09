@@ -12,6 +12,7 @@ android_library {
     static_libs: [
         "hilt_android",
         "kotlinx-coroutines-core",
+        "jetpack-camera-app_core_camera",
         "jetpack-camera-app_core_common",
     ],
     sdk_version: "34",
