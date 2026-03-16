@@ -15,20 +15,9 @@
  */
 package com.google.jetpackcamera.ui.uistateadapter.capture
 
-import com.google.jetpackcamera.core.camera.VideoRecordingState
-import com.google.jetpackcamera.data.media.MediaDescriptor
-import com.google.jetpackcamera.ui.uistate.capture.ImageWellUiState
-
-fun ImageWellUiState.Companion.from(
-    mediaDescriptor: MediaDescriptor,
-    videoRecordingState: VideoRecordingState
-): ImageWellUiState {
-    return if (mediaDescriptor is MediaDescriptor.Content &&
-        mediaDescriptor.thumbnail != null &&
-        videoRecordingState is VideoRecordingState.Inactive
-    ) {
-        ImageWellUiState.LastCapture(mediaDescriptor = mediaDescriptor)
-    } else {
-        ImageWellUiState.Unavailable
-    }
+enum class PreviewMode {
+    STANDARD,
+    EXTERNAL_VIDEO_CAPTURE,
+    EXTERNAL_IMAGE_CAPTURE,
+    EXTERNAL_MULTIPLE_IMAGE_CAPTURE
 }
