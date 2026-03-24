@@ -16,7 +16,9 @@
 package com.google.jetpackcamera.feature.preview
 
 import android.content.ContentResolver
+import android.content.Context
 import androidx.lifecycle.SavedStateHandle
+import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
 import com.google.jetpackcamera.core.camera.test.FakeCameraSystem
 import com.google.jetpackcamera.data.media.FakeMediaRepository
@@ -40,7 +42,6 @@ import kotlinx.coroutines.test.setMain
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.mockito.Mockito.mock
 import org.robolectric.RobolectricTestRunner
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -60,7 +61,7 @@ class PreviewViewModelTest {
             cameraSystem = cameraSystem,
             constraintsRepository = constraintsRepository,
             settingsRepository = FakeSettingsRepository,
-            mediaRepository = FakeMediaRepository,
+            mediaRepository = FakeMediaRepository(),
             savedStateHandle = SavedStateHandle(),
             defaultSaveMode = SaveMode.Immediate
         )
@@ -69,7 +70,7 @@ class PreviewViewModelTest {
 
     @Test
     fun getPreviewUiState() = runTest(StandardTestDispatcher()) {
-        advanceUntilIdle()
+        startCameraUntilRunning()
         val uiState = previewViewModel.captureUiState.value
         assertThat(uiState).isInstanceOf(CaptureUiState.Ready::class.java)
     }
@@ -83,7 +84,8 @@ class PreviewViewModelTest {
 
     @Test
     fun captureImageWithUri() = runTest(StandardTestDispatcher()) {
-        val contentResolver: ContentResolver = mock()
+        val contentResolver: ContentResolver =
+            ApplicationProvider.getApplicationContext<Context>().contentResolver
         startCameraUntilRunning()
         previewViewModel.captureImage(contentResolver)
         advanceUntilIdle()
@@ -126,7 +128,7 @@ class PreviewViewModelTest {
     @Test
     fun flipCamera() = runTest(StandardTestDispatcher()) {
         // initial default value should be back
-        previewViewModel.startCamera()
+        startCameraUntilRunning()
         assertIsReady(previewViewModel.captureUiState.value).also {
             assertThat(it.flipLensUiState is FlipLensUiState.Available).isTrue()
             assertThat(
@@ -150,6 +152,7 @@ class PreviewViewModelTest {
 
     @Test
     fun toggleQuickSettings() = runTest(StandardTestDispatcher()) {
+        startCameraUntilRunning()
         // Initial state should be closed
         assertIsReady(previewViewModel.captureUiState.value).also {
             val quickSettings = it.quickSettingsUiState as QuickSettingsUiState.Available

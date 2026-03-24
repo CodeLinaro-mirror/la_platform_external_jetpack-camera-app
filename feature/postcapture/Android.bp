@@ -27,7 +27,7 @@ android_library {
         "jetpack-camera-app_core_common",
         "jetpack-camera-app_data_media",
         "jetpack-camera-app_ui_uistate_postcapture",
-        "jetpack-camera-app_ui_uistate_capture",
+        "jetpack-camera-app_ui_uistate",
         "jetpack-camera-app_ui_components_capture",
         "jetpack-camera-app_ui_uistateadapter_capture",
         "jetpack-camera-app_ui_uistateadapter_postcapture",

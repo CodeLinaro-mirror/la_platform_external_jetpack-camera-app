@@ -98,7 +98,7 @@ import com.google.jetpackcamera.ui.components.capture.TestableSnackbar
 import com.google.jetpackcamera.ui.components.capture.VIDEO_QUALITY_TAG
 import com.google.jetpackcamera.ui.components.capture.VideoQualityIcon
 import com.google.jetpackcamera.ui.components.capture.ZoomButtonRow
-import com.google.jetpackcamera.ui.components.capture.ZoomState
+import com.google.jetpackcamera.ui.components.capture.ZoomStateManager
 import com.google.jetpackcamera.ui.components.capture.debouncedOrientationFlow
 import com.google.jetpackcamera.ui.components.capture.debug.DebugOverlay
 import com.google.jetpackcamera.ui.components.capture.quicksettings.QuickSettingsBottomSheet
@@ -106,6 +106,7 @@ import com.google.jetpackcamera.ui.components.capture.quicksettings.ui.FlashMode
 import com.google.jetpackcamera.ui.components.capture.quicksettings.ui.HdrIndicator
 import com.google.jetpackcamera.ui.components.capture.quicksettings.ui.ToggleQuickSettingsButton
 import com.google.jetpackcamera.ui.uistate.DisableRationale
+import com.google.jetpackcamera.ui.uistate.SnackBarUiState
 import com.google.jetpackcamera.ui.uistate.capture.AudioUiState
 import com.google.jetpackcamera.ui.uistate.capture.CaptureButtonUiState
 import com.google.jetpackcamera.ui.uistate.capture.CaptureModeToggleUiState
@@ -140,6 +141,8 @@ fun PreviewScreen(
     Log.d(TAG, "PreviewScreen")
 
     val captureUiState: CaptureUiState by viewModel.captureUiState.collectAsState()
+    val debugUiState: DebugUiState by viewModel.debugUiState.collectAsState()
+    val snackBarUiState: SnackBarUiState by viewModel.snackBarUiState.collectAsState()
 
     val screenFlashUiState: ScreenFlashUiState
         by viewModel.screenFlash.screenFlashUiState.collectAsState()
@@ -198,12 +201,12 @@ fun PreviewScreen(
                 debouncedOrientationFlow(context).collect(viewModel::setDisplayRotation)
             }
             val scope = rememberCoroutineScope()
-            val zoomState = remember {
+            val zoomStateManager = remember {
                 // the initialZoomLevel must be fetched from the settings, not the cameraState.
                 // since we want to reset the ZoomState on flip, the zoomstate of the cameraState
                 // may not yet be congruent with the settings
 
-                ZoomState(
+                ZoomStateManager(
                     initialZoomLevel = (
                         currentUiState.zoomControlUiState as?
                             ZoomControlUiState.Enabled
@@ -222,7 +225,7 @@ fun PreviewScreen(
                 (currentUiState.flipLensUiState as? FlipLensUiState.Available)
                     ?.selectedLensFacing
             ) {
-                zoomState.onChangeLens(
+                zoomStateManager.onChangeLens(
                     newInitialZoomLevel = (
                         currentUiState.zoomControlUiState as?
                             ZoomControlUiState.Enabled
@@ -250,7 +253,7 @@ fun PreviewScreen(
                                 Log.d(TAG, "reset pre recording settings")
                                 viewModel.setAudioEnabled(oldAudioEnabled)
                                 viewModel.setLensFacing(oldPrimaryLensFacing)
-                                zoomState.apply {
+                                zoomStateManager.apply {
                                     absoluteZoom(
                                         targetZoomLevel = oldZoomRatios[oldPrimaryLensFacing] ?: 1f,
                                         lensToZoom = LensToZoom.PRIMARY
@@ -283,7 +286,7 @@ fun PreviewScreen(
                 onSetImageWell = viewModel::imageWellToRepository,
                 onAbsoluteZoom = { zoomRatio: Float, lensToZoom: LensToZoom ->
                     scope.launch {
-                        zoomState.absoluteZoom(
+                        zoomStateManager.absoluteZoom(
                             zoomRatio,
                             lensToZoom
                         )
@@ -291,7 +294,7 @@ fun PreviewScreen(
                 },
                 onScaleZoom = { zoomRatio: Float, lensToZoom: LensToZoom ->
                     scope.launch {
-                        zoomState.scaleZoom(
+                        zoomStateManager.scaleZoom(
                             zoomRatio,
                             lensToZoom
                         )
@@ -299,7 +302,7 @@ fun PreviewScreen(
                 },
                 onAnimateZoom = { zoomRatio: Float, lensToZoom: LensToZoom ->
                     scope.launch {
-                        zoomState.animatedZoom(
+                        zoomStateManager.animatedZoom(
                             targetZoomLevel = zoomRatio,
                             lensToZoom = lensToZoom
                         )
@@ -307,7 +310,7 @@ fun PreviewScreen(
                 },
                 onIncrementZoom = { zoomRatio: Float, lensToZoom: LensToZoom ->
                     scope.launch {
-                        zoomState.incrementZoom(
+                        zoomStateManager.incrementZoom(
                             zoomRatio,
                             lensToZoom
                         )
@@ -334,7 +337,9 @@ fun PreviewScreen(
                 onLockVideoRecording = viewModel::setLockedRecording,
                 onRequestWindowColorMode = onRequestWindowColorMode,
                 onSnackBarResult = viewModel::onSnackBarResult,
-                onNavigatePostCapture = onNavigateToPostCapture
+                onNavigatePostCapture = onNavigateToPostCapture,
+                debugUiState = debugUiState,
+                snackBarUiState = snackBarUiState
             )
             val readStoragePermission: PermissionState = rememberPermissionState(
                 Manifest.permission.READ_EXTERNAL_STORAGE
@@ -388,7 +393,9 @@ private fun ContentScreen(
     onLockVideoRecording: (Boolean) -> Unit = {},
     onRequestWindowColorMode: (Int) -> Unit = {},
     onSnackBarResult: (String) -> Unit = {},
-    onNavigatePostCapture: () -> Unit = {}
+    onNavigatePostCapture: () -> Unit = {},
+    debugUiState: DebugUiState = DebugUiState.Disabled,
+    snackBarUiState: SnackBarUiState = SnackBarUiState.Disabled
 ) {
     val onFlipCamera = {
         if (captureUiState.flipLensUiState is FlipLensUiState.Available) {
@@ -567,7 +574,7 @@ private fun ContentScreen(
             )
         },
         debugOverlay = { modifier, extraControls ->
-            (captureUiState.debugUiState as? DebugUiState.Enabled)?.let {
+            (debugUiState as? DebugUiState.Enabled)?.let {
                 DebugOverlay(
                     modifier = modifier,
                     toggleIsOpen = onToggleDebugOverlay,
@@ -580,7 +587,7 @@ private fun ContentScreen(
             }
         },
         debugVisibilityWrapper = { content ->
-            val uiState = captureUiState.debugUiState
+            val uiState = debugUiState
             if (uiState !is DebugUiState.Enabled || !uiState.debugHidingComponents) {
                 content()
             }
@@ -597,14 +604,16 @@ private fun ContentScreen(
             )
         },
         snackBar = { modifier, snackbarHostState ->
-            val snackBarData = captureUiState.snackBarUiState.snackBarQueue.peek()
-            if (snackBarData != null) {
-                TestableSnackbar(
-                    modifier = modifier.testTag(snackBarData.testTag),
-                    snackbarToShow = snackBarData,
-                    snackbarHostState = snackbarHostState,
-                    onSnackbarResult = onSnackBarResult
-                )
+            if (snackBarUiState is SnackBarUiState.Enabled) {
+                val snackBarData = snackBarUiState.snackBarQueue.peek()
+                if (snackBarData != null) {
+                    TestableSnackbar(
+                        modifier = modifier.testTag(snackBarData.testTag),
+                        snackbarToShow = snackBarData,
+                        snackbarHostState = snackbarHostState,
+                        onSnackbarResult = onSnackBarResult
+                    )
+                }
             }
         },
         pauseToggleButton = {

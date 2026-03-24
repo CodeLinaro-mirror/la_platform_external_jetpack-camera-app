@@ -43,6 +43,8 @@ import com.google.jetpackcamera.core.camera.CameraCoreUtil.writeFileExternalStor
 import com.google.jetpackcamera.core.camera.lowlight.LowLightBoostAvailabilityChecker
 import com.google.jetpackcamera.core.camera.lowlight.LowLightBoostEffectProvider
 import com.google.jetpackcamera.core.camera.lowlight.LowLightBoostFeatureKey
+import com.google.jetpackcamera.core.camera.postprocess.ImagePostProcessor
+import com.google.jetpackcamera.core.camera.postprocess.ImagePostProcessorFeatureKey
 import com.google.jetpackcamera.core.common.DefaultDispatcher
 import com.google.jetpackcamera.core.common.DefaultFilePathGenerator
 import com.google.jetpackcamera.core.common.FilePathGenerator
@@ -116,7 +118,9 @@ constructor(
     availabilityCheckers:
     Map<LowLightBoostFeatureKey, @JvmSuppressWildcards Provider<LowLightBoostAvailabilityChecker>>,
     effectProviders:
-    Map<LowLightBoostFeatureKey, @JvmSuppressWildcards Provider<LowLightBoostEffectProvider>>
+    Map<LowLightBoostFeatureKey, @JvmSuppressWildcards Provider<LowLightBoostEffectProvider>>,
+    val imagePostProcessors:
+    Map<ImagePostProcessorFeatureKey, @JvmSuppressWildcards Provider<ImagePostProcessor>>
 ) : CameraSystem {
     private lateinit var cameraProvider: ProcessCameraProvider
 
@@ -176,6 +180,16 @@ constructor(
                 LensFacing.BACK
             ).filter {
                 cameraProvider.hasCamera(it.toCameraSelector())
+            }
+
+        // verify the initial camera exists
+        val settingsWithVerifiedLens =
+            if (cameraAppSettings.cameraLensFacing !in availableCameraLenses &&
+                availableCameraLenses.isNotEmpty()
+            ) {
+                cameraAppSettings.copy(cameraLensFacing = availableCameraLenses.first())
+            } else {
+                cameraAppSettings
             }
 
         // Build and update the system constraints
@@ -244,7 +258,7 @@ constructor(
                         val supportedIlluminants = generateSupportedIlluminants(
                             camInfo,
                             lensFacing,
-                            cameraAppSettings
+                            settingsWithVerifiedLens
                         )
                         val supportedFlashModes = generateSupportedFlashModes(supportedIlluminants)
 
@@ -283,9 +297,9 @@ constructor(
         constraintsRepository.updateSystemConstraints(systemConstraints)
 
         currentSettings.value =
-            cameraAppSettings
+            settingsWithVerifiedLens
                 .tryApplyDynamicRangeConstraints()
-                .tryApplyAspectRatioForExternalCapture(cameraAppSettings.captureMode)
+                .tryApplyAspectRatioForExternalCapture(settingsWithVerifiedLens.captureMode)
                 .tryApplyImageFormatConstraints()
                 .tryApplyFrameRateConstraints()
                 .tryApplyStabilizationConstraints()
@@ -615,6 +629,10 @@ constructor(
             closeable?.close()
         }.also { outputFileResults ->
             outputFileResults.savedUri?.let {
+                for ((key, value) in imagePostProcessors) {
+                    value.get().postProcessImage(it)
+                    Log.d(TAG, "Post processed image with $key")
+                }
                 Log.d(TAG, "Saved image to $it")
             }
         }

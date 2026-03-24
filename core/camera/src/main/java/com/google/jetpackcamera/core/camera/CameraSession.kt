@@ -41,6 +41,7 @@ import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraEffect
 import androidx.camera.core.CameraInfo
+import androidx.camera.core.CameraState as CXCameraState
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.Preview
 import androidx.camera.core.TorchState
@@ -247,7 +248,7 @@ internal suspend fun runSingleCameraSession(
                     launch {
                         camera.cameraInfo.torchState.asFlow().collectLatest { torchState ->
                             currentCameraState.update { old ->
-                                old.copy(torchEnabled = torchState == TorchState.ON)
+                                old.copy(isTorchEnabled = torchState == TorchState.ON)
                             }
                         }
                     }
@@ -280,8 +281,30 @@ internal suspend fun runSingleCameraSession(
                         }
                     }
 
-                    // update camerastate to mirror current zoomstate
+                    // Update CameraState to reflect when camera is running
+                    launch {
+                        camera.cameraInfo.cameraState
+                            .asFlow()
+                            .filterNotNull()
+                            .distinctUntilChanged()
+                            .onCompletion {
+                                currentCameraState.update { old ->
+                                    old.copy(
+                                        isCameraRunning = false
+                                    )
+                                }
+                            }
+                            .collectLatest { cameraState ->
+                                currentCameraState.update { old ->
+                                    old.copy(
+                                        isCameraRunning =
+                                        cameraState.type == CXCameraState.Type.OPEN
+                                    )
+                                }
+                            }
+                    }
 
+                    // Update CameraState to mirror current ZoomState
                     launch {
                         camera.cameraInfo.zoomState
                             .asFlow()
@@ -730,7 +753,12 @@ private fun createPreviewUseCase(
     when (stabilizationMode) {
         StabilizationMode.ON -> setPreviewStabilizationEnabled(true)
         StabilizationMode.OPTICAL -> setOpticalStabilizationModeEnabled(true)
-        StabilizationMode.OFF -> setOpticalStabilizationModeEnabled(false)
+        StabilizationMode.OFF -> {
+            setOpticalStabilizationModeEnabled(false)
+            // Setting this to false in Preview use case will disable video stabilization, even in
+            //  IMAGE_ONLY mode where there isn't a video capture use case attached
+            setPreviewStabilizationEnabled(false)
+        }
         StabilizationMode.HIGH_QUALITY -> {} // No-op. Handled by VideoCapture use case.
         else -> throw UnsupportedOperationException(
             "Unexpected stabilization mode: $stabilizationMode. Stabilization mode should always " +
