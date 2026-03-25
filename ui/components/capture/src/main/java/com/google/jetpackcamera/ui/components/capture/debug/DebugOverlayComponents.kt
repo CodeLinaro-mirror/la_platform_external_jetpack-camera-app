@@ -77,7 +77,6 @@ import com.google.jetpackcamera.ui.components.capture.LOGICAL_CAMERA_ID_TAG
 import com.google.jetpackcamera.ui.components.capture.PHYSICAL_CAMERA_ID_TAG
 import com.google.jetpackcamera.ui.components.capture.R
 import com.google.jetpackcamera.ui.components.capture.ZOOM_RATIO_TAG
-import com.google.jetpackcamera.ui.controller.debug.DebugController
 import com.google.jetpackcamera.ui.uistate.capture.DebugUiState
 import kotlin.math.abs
 
@@ -169,20 +168,22 @@ private fun ToggleVisibilityButton(
 fun DebugOverlay(
     modifier: Modifier = Modifier,
     onChangeZoomRatio: (Float) -> Unit,
+    onSetTestPattern: (TestPattern) -> Unit,
+    toggleIsOpen: () -> Unit,
+    onToggleHidingComponents: () -> Unit,
     debugUiState: DebugUiState.Enabled,
-    vararg extraControls: @Composable () -> Unit,
-    debugController: DebugController
+    vararg extraControls: @Composable () -> Unit
 ) {
     Box(modifier = modifier.fillMaxSize()) {
         Column(modifier = Modifier.padding(top = 100.dp)) {
             ToggleVisibilityButton(
-                onToggleHidingComponents = debugController::toggleDebugHidingComponents,
+                onToggleHidingComponents = onToggleHidingComponents,
                 isHidingComponents = debugUiState.debugHidingComponents
             )
             if (!debugUiState.debugHidingComponents) {
                 DebugConsole(
                     debugUiState = debugUiState,
-                    onToggleDebugOverlay = debugController::toggleDebugOverlay,
+                    onToggleDebugOverlay = toggleIsOpen,
                     extraControls = extraControls
                 )
             }
@@ -192,8 +193,8 @@ fun DebugOverlay(
                 DebugDialogContainer(
                     modifier = Modifier,
                     onChangeZoomRatio = onChangeZoomRatio,
-                    onSetTestPattern = debugController::setTestPattern,
-                    toggleIsOpen = debugController::toggleDebugOverlay,
+                    onSetTestPattern = onSetTestPattern,
+                    toggleIsOpen = toggleIsOpen,
                     debugUiState = it
                 )
             }

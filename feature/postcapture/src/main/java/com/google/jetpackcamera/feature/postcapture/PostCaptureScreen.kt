@@ -35,7 +35,6 @@ import com.google.jetpackcamera.feature.postcapture.ui.SaveCurrentMediaButton
 import com.google.jetpackcamera.feature.postcapture.ui.ShareCurrentMediaButton
 import com.google.jetpackcamera.feature.postcapture.utils.MediaSharing
 import com.google.jetpackcamera.ui.components.capture.TestableSnackbar
-import com.google.jetpackcamera.ui.controller.SnackBarController
 import com.google.jetpackcamera.ui.uistate.SnackBarUiState
 import com.google.jetpackcamera.ui.uistate.postcapture.DeleteButtonUiState
 import com.google.jetpackcamera.ui.uistate.postcapture.MediaViewerUiState
@@ -74,8 +73,8 @@ fun PostCaptureScreen(
         onSaveMedia = viewModel::saveCurrentMedia,
         onShareCurrentMedia = viewModel::onShareCurrentMedia,
         onLoadVideo = viewModel::loadCurrentVideo,
-        snackBarUiState = snackBarUiState,
-        snackBarController = viewModel.snackBarController
+        onSnackBarResult = viewModel::onSnackBarResult,
+        snackBarUiState = snackBarUiState
     )
 }
 
@@ -88,8 +87,8 @@ fun PostCaptureComponent(
     onShareCurrentMedia: () -> Unit,
     onDeleteMedia: (onSuccessCallback: () -> Unit) -> Unit,
     onLoadVideo: () -> Unit,
-    snackBarUiState: SnackBarUiState = SnackBarUiState.Disabled,
-    snackBarController: SnackBarController? = null
+    onSnackBarResult: (String) -> Unit,
+    snackBarUiState: SnackBarUiState = SnackBarUiState.Disabled
 ) {
     when (uiState) {
         PostCaptureUiState.Loading -> {
@@ -140,14 +139,12 @@ fun PostCaptureComponent(
                     if (snackBarUiState is SnackBarUiState.Enabled) {
                         val snackBarData = snackBarUiState.snackBarQueue.peek()
                         if (snackBarData != null) {
-                            snackBarController?.let {
-                                TestableSnackbar(
-                                    modifier = modifier.testTag(snackBarData.testTag),
-                                    snackbarToShow = snackBarData,
-                                    snackbarHostState = snackbarHostState,
-                                    snackBarController = snackBarController
-                                )
-                            }
+                            TestableSnackbar(
+                                modifier = modifier.testTag(snackBarData.testTag),
+                                snackbarToShow = snackBarData,
+                                snackbarHostState = snackbarHostState,
+                                onSnackbarResult = onSnackBarResult
+                            )
                         }
                     }
                 }

@@ -25,7 +25,6 @@ import androidx.core.util.toClosedRange
 import com.google.jetpackcamera.model.CameraZoomRatio
 import com.google.jetpackcamera.model.LensToZoom
 import com.google.jetpackcamera.model.ZoomStrategy
-import com.google.jetpackcamera.ui.controller.ZoomController
 
 /**
  * Manages the camera's zoom level and handles interactions related to zooming.
@@ -42,10 +41,11 @@ import com.google.jetpackcamera.ui.controller.ZoomController
 class ZoomStateManager(
     initialZoomLevel: Float,
     zoomRange: Range<Float>,
-    private val zoomController: ZoomController
+    val onChangeZoomLevel: (CameraZoomRatio) -> Unit,
+    val onAnimateStateChanged: (Float?) -> Unit
 ) {
     init {
-        zoomController.setZoomAnimationState(null)
+        onAnimateStateChanged(null)
     }
 
     private var functionalZoom = initialZoomLevel
@@ -62,7 +62,7 @@ class ZoomStateManager(
 
     private suspend fun mutateZoom(block: suspend () -> Unit) {
         mutatorMutex.mutate {
-            zoomController.setZoomAnimationState(null)
+            onAnimateStateChanged(null)
             block()
         }
     }
@@ -81,7 +81,7 @@ class ZoomStateManager(
             if (lensToZoom == LensToZoom.PRIMARY) {
                 functionalZoom = targetZoomLevel.coerceIn(functionalZoomRange.toClosedRange())
             }
-            zoomController.setZoomRatio(
+            onChangeZoomLevel(
                 CameraZoomRatio(
                     ZoomStrategy.Absolute(
                         targetZoomLevel.coerceIn(functionalZoomRange.toClosedRange()),
@@ -133,7 +133,7 @@ class ZoomStateManager(
         lensToZoom: LensToZoom
     ) {
         mutatorMutex.mutate {
-            zoomController.setZoomAnimationState(targetZoomLevel)
+            onAnimateStateChanged(targetZoomLevel)
 
             Animatable(initialValue = functionalZoom).animateTo(
                 targetValue = targetZoomLevel,
@@ -141,7 +141,7 @@ class ZoomStateManager(
             ) {
                 // this is called every animation frame
                 functionalZoom = value.coerceIn(functionalZoomRange.toClosedRange())
-                zoomController.setZoomRatio(
+                onChangeZoomLevel(
                     CameraZoomRatio(
                         ZoomStrategy.Absolute(
                             functionalZoom,
