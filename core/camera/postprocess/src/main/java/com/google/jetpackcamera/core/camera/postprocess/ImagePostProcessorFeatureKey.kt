@@ -13,25 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.jetpackcamera.ui.components.capture
+package com.google.jetpackcamera.core.camera.postprocess
 
 /**
- * A helper class that prevents multiple clicks.
+ * A unique key used to identify and manage this post-processor.
+ * This allows for selective enabling, disabling, or querying of specific post-processing
+ * features.
  */
-internal class MultipleEventsCutter {
-    private val now: Long
-        get() = System.currentTimeMillis()
-
-    private var lastEventTimeMs: Long = 0
-
-    fun processEvent(event: () -> Unit) {
-        if (now - lastEventTimeMs >= DURATION_BETWEEN_CLICKS_MS) {
-            event.invoke()
-        }
-        lastEventTimeMs = now
-    }
-
-    companion object {
-        private const val DURATION_BETWEEN_CLICKS_MS = 300L
-    }
-}
+interface ImagePostProcessorFeatureKey

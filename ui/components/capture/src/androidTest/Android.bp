@@ -10,6 +10,7 @@ android_test {
         "androidx.test.runner",
         "junit",
         "androidx.test.ext.junit",
+        "androidx.test.ext.truth",
         "kotlinx_coroutines_test",
         "androidx.compose.runtime_runtime",
         "androidx.compose.ui_ui-test-junit4",
