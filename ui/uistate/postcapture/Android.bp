@@ -10,7 +10,7 @@ android_library {
     static_libs: [
         "androidx.compose.runtime_runtime",
         "androidx.compose.material3_material3",
-        "jetpack-camera-app_ui_uistate_capture",
+        "jetpack-camera-app_ui_uistate",
         "androidx.media3.media3-exoplayer",
         "androidx.core_core-ktx",
         "androidx.appcompat_appcompat",
