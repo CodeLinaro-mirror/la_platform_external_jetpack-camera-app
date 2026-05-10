@@ -30,6 +30,8 @@ android_library {
         "jetpack-camera-app_data_media",
         "androidx.compose.ui_ui-tooling",
         "accompanist-permissions",
+        "jetpack-camera-app_ui_controller",
+        "jetpack-camera-app_ui_controller_impl",
         "jetpack-camera-app_ui_uistate",
         "jetpack-camera-app_ui_uistateadapter",
         "jetpack-camera-app_ui_uistateadapter_capture",
