@@ -144,6 +144,17 @@ constructor(
                 cameraProvider.hasCamera(it.toCameraSelector())
             }
 
+        // verify the initial camera exists
+        val initialSettings = settingsRepository.defaultCameraAppSettings.first()
+        val settingsWithVerifiedLens =
+            if (initialSettings.cameraLensFacing !in availableCameraLenses &&
+                availableCameraLenses.isNotEmpty()
+            ) {
+                initialSettings.copy(cameraLensFacing = availableCameraLenses.first())
+            } else {
+                initialSettings
+            }
+
         // Build and update the system constraints
         systemConstraints = SystemConstraints(
             availableLenses = availableCameraLenses,
@@ -185,14 +196,14 @@ constructor(
         constraintsRepository.updateSystemConstraints(systemConstraints)
 
         currentSettings.value =
-            settingsRepository.defaultCameraAppSettings.first()
+            settingsWithVerifiedLens
                 .tryApplyDynamicRangeConstraints()
                 .tryApplyAspectRatioForExternalCapture(externalImageCapture)
 
         imageCaptureUseCase = ImageCapture.Builder()
             .setResolutionSelector(
                 getResolutionSelector(
-                    settingsRepository.defaultCameraAppSettings.first().aspectRatio
+                    settingsWithVerifiedLens.aspectRatio
                 )
             ).build()
     }
